@@ -227,8 +227,8 @@ public class MdlFileBuilder {
             mvdTasks.Add( mesh, new() );
             mvdTasks[mesh].AddVertexData( Task.Run( () => Task.FromResult( mesh.GetVertexData() ) ) );
             foreach( var submesh in mesh.Submeshes ) {
-                foreach( var str in submesh.Shapes ) {
-                    if( _stringTableBuilder.Shapes.Contains( str ) ) {
+                foreach (var str in _stringTableBuilder.Shapes) { 
+                    if( submesh.Shapes.Contains( str ) ) {
                         mvdTasks[mesh].AddShapeVertexData( Task.Run( () => Task.FromResult( submesh.GetShapeVertexData( str ) ) ) );
                     }
                 }
