@@ -1,5 +1,4 @@
-using Dalamud.Logging;
-using SharpGLTF.Schema2;
+using Lumina;
 using System.Text;
 
 namespace Xande.Models.Import;
@@ -12,8 +11,10 @@ public class StringTableBuilder {
     public SortedSet<string> Shapes = new();
     public readonly List<string> Extras = new();
 
-    public StringTableBuilder() {
+    private readonly ILogger? _logger;
 
+    public StringTableBuilder(ILogger? logger = null) {
+        _logger = logger;
     }
 
     public void AddAttribute( string attr ) {
@@ -71,7 +72,7 @@ public class StringTableBuilder {
 
     internal List<char> GetChars() {
         var str = String.Join( ' ', Attributes, Bones, Materials, Shapes, Extras );
-        PluginLog.Debug( $"Getting chars: {str}" );
+        _logger?.Debug( $"Getting chars: {str}" );
         return str.ToCharArray().ToList();
     }
 
@@ -137,7 +138,7 @@ public class StringTableBuilder {
                 ret.Add( ( uint )index );
             }
             else {
-                PluginLog.Error( $"Could not locate index for {s}" );
+                _logger?.Error( $"Could not locate index for {s}" );
             }
         }
         return ret;

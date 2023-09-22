@@ -1,9 +1,4 @@
-using Dalamud.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Lumina;
 
 namespace Xande.Models.Import {
     internal class MeshVertexData {
@@ -12,6 +7,12 @@ namespace Xande.Models.Import {
 
         private List<Task<Dictionary<int, List<byte>>>> _vertexDataTasks = new();
         private List<Task<Dictionary<int, List<byte>>>> _shapeVertexDataTasks = new();
+
+        private readonly ILogger? _logger;
+
+        public MeshVertexData(ILogger? logger = null) {
+            _logger = logger;
+        }
 
         public void AddVertexData(Task<Dictionary<int, List<byte>>> task) {
             _vertexDataTasks.Add(task);
@@ -59,7 +60,7 @@ namespace Xande.Models.Import {
 
                 if( _shapeVertexData.Count > 0 ) {
                     if( !_shapeVertexData.ContainsKey( stream ) ) {
-                        PluginLog.Error( $"Vertices and shape vertices do not have the same stream: {stream}" );
+                        _logger?.Error( $"Vertices and shape vertices do not have the same stream: {stream}" );
                         continue;
                     }
                     ret.AddRange( _shapeVertexData[stream] );

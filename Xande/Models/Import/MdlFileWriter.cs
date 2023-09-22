@@ -1,21 +1,18 @@
-using Dalamud.Logging;
+using Lumina;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing;
-using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Xande.Models.Import {
     public class MdlFileWriter : IDisposable {
         private MdlFile _file;
         private BinaryWriter _w;
+        private readonly ILogger? _logger;
 
-        public MdlFileWriter( MdlFile file, Stream stream ) {
+        public MdlFileWriter( MdlFile file, Stream stream, ILogger? logger = null ) {
             _file = file;
             _w = new BinaryWriter( stream );
+            _logger = logger;
         }
 
         public void WriteAll( IEnumerable<byte> vertexData, IEnumerable<byte> indexData ) {
@@ -76,7 +73,7 @@ namespace Xande.Models.Import {
             _w.Write( vertexData.ToArray() );
             _w.Write( indexData.ToArray() );
 
-            PluginLog.Debug( "Finished writing" );
+            _logger?.Debug( "Finished writing" );
         }
 
         private void WriteFileHeader( MdlStructs.ModelFileHeader modelFileHeader ) {

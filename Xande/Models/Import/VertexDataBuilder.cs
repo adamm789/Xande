@@ -1,15 +1,7 @@
-using Dalamud.Logging;
+using Lumina;
 using Lumina.Data.Parsing;
-using Lumina.Models.Models;
-using SharpGLTF.Memory;
 using SharpGLTF.Schema2;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Xande.Models.Import {
     internal class VertexDataBuilder {
@@ -30,8 +22,11 @@ namespace Xande.Models.Import {
 
         private MdlStructs.VertexDeclarationStruct _vertexDeclaration;
 
-        public VertexDataBuilder( MeshPrimitive primitive, MdlStructs.VertexDeclarationStruct vertexDeclaration ) {
+        private readonly ILogger? _logger;
+
+        public VertexDataBuilder( MeshPrimitive primitive, MdlStructs.VertexDeclarationStruct vertexDeclaration, ILogger? logger = null ) {
             _vertexDeclaration = vertexDeclaration;
+            _logger = logger;
             _positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array().ToList();
             _blendWeights = primitive.GetVertexAccessor( "WEIGHTS_0" )?.AsVector4Array().ToList();
             _blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array().ToList();
@@ -74,7 +69,7 @@ namespace Xande.Models.Import {
         public Dictionary<int, List<byte>> GetShapeVertexData( List<int> diffVertices, string? shapeName = null ) {
             var streams = new Dictionary<int, List<byte>>();
             if( ShapesAccessor == null ) {
-                PluginLog.Error( $"Shape accessor was null" );
+                _logger?.Error( $"Shape accessor was null" );
             }
 
             foreach( var vertexId in diffVertices ) {
@@ -171,7 +166,7 @@ namespace Xande.Models.Import {
                         }
                     }
                     else {
-                        PluginLog.Error( $"normals were null" );
+                        _logger?.Error( $"normals were null" );
                         vector4 = new( 1, 1, 1, 1 );
                     }
                     break;
@@ -180,7 +175,7 @@ namespace Xande.Models.Import {
                         vector4 = new( _texCoords[index], 0, 0 );
                     }
                     else {
-                        PluginLog.Error( $"tex coordinates were null" );
+                        _logger?.Error( $"tex coordinates were null" );
                     }
                     break;
                 case Vertex.VertexUsage.Tangent2:

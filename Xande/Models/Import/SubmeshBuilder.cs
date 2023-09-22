@@ -1,18 +1,8 @@
-using Dalamud.Logging;
-using Lumina.Data.Files;
+using Lumina;
 using Lumina.Data.Parsing;
-using Lumina.Models.Models;
-using Microsoft.VisualBasic;
-using SharpGLTF.Memory;
 using SharpGLTF.Schema2;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Threading.Tasks;
 
 using Mesh = SharpGLTF.Schema2.Mesh;
 
@@ -41,25 +31,27 @@ namespace Xande.Models.Import {
 
         private List<Vector4>? _bitangents = null;
 
-        private VertexDataBuilder VertexDataBuilder;
+        private VertexDataBuilder _vertexDataBuilder;
+        private readonly ILogger? _logger;
 
         /// <summary>
         /// 
         /// </summary>
         /// <param name="mesh"></param>
         /// <param name="skeleton"></param>
-        public SubmeshBuilder( Mesh mesh, List<string> skeleton, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct ) {
+        public SubmeshBuilder( Mesh mesh, List<string> skeleton, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct, ILogger? logger = null ) {
             _mesh = mesh;
+            _logger = logger;
             if( _mesh.Primitives.Count == 0 ) {
-                PluginLog.Error( $"Submesh had zero primitives" );
+                _logger?.Error( $"Submesh had zero primitives" );
             }
             if( _mesh.Primitives.Count > 1 ) {
-                PluginLog.Warning( $"Submesh had more than one primitive." );
+                _logger?.Warning( $"Submesh had more than one primitive." );
             }
 
             var primitive = _mesh.Primitives[0];
             //foreach( var primitive in _mesh.Primitives ) {
-            VertexDataBuilder = new( primitive, vertexDeclarationStruct );
+            _vertexDataBuilder = new( primitive, vertexDeclarationStruct );
             Indices.AddRange( primitive.GetIndices() );
 
             var blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array();
@@ -69,7 +61,7 @@ namespace Xande.Models.Import {
             if( String.IsNullOrEmpty( material ) ) {
                 // TODO: Figure out what to do in this case
                 // Have a Model as an argument and take the first material from that?
-                PluginLog.Error( "Submesh had null material name" );
+                _logger?.Error( "Submesh had null material name" );
             }
             else {
                 if( String.IsNullOrEmpty( MaterialPath ) ) {
@@ -78,7 +70,7 @@ namespace Xande.Models.Import {
                 }
                 else {
                     if( material != _material || material != MaterialPath ) {
-                        PluginLog.Error( $"Found more than one material name. Original: \"{MaterialPath}\" vs \"{material}\"" );
+                        _logger?.Error( $"Found more than one material name. Original: \"{MaterialPath}\" vs \"{material}\"" );
                     }
                 }
             }
@@ -97,7 +89,7 @@ namespace Xande.Models.Import {
                 }
             }
             else {
-                PluginLog.Error( "This submesh had no positions." );
+                _logger?.Error( "This submesh had no positions." );
             }
 
             var includeNHara = skeleton.Where( x => x.StartsWith( "n_hara" ) ).Count() > 1;
@@ -127,8 +119,8 @@ namespace Xande.Models.Import {
                                 if( shapeName == null ) { continue; }
 
                                 if( shapeName.StartsWith( "shp_" ) ) {
-                                    _shapeBuilders[shapeName] = new ShapeBuilder( shapeName, primitive, i, vertexDeclarationStruct );
-                                    VertexDataBuilder.AddShape( shapeName, primitive.GetMorphTargetAccessors( i ) );
+                                    _shapeBuilders[shapeName] = new ShapeBuilder( shapeName, primitive, i, _logger);
+                                    _vertexDataBuilder.AddShape( shapeName, primitive.GetMorphTargetAccessors( i ) );
                                 }
                                 else if( shapeName.StartsWith( "atr_" ) && !Attributes.Contains( shapeName ) ) {
                                     Attributes.Add( shapeName );
@@ -145,7 +137,7 @@ namespace Xande.Models.Import {
                                     var appliedNormalPositions = shapeNormalAccessor?.AsVector3Array();
 
                                     if( appliedPositions != null && appliedPositions.Any() && appliedPositions.Where( x => x != Vector3.Zero ).Any() ) {
-                                        PluginLog.Debug( $"AppliedShape: {shapeName} with weight {shapeWeight}" );
+                                        _logger?.Debug( $"AppliedShape: {shapeName} with weight {shapeWeight}" );
                                         AppliedShapes.Add( (appliedPositions.ToList(), shapeWeight) );
                                     }
                                     if( appliedNormalPositions != null && appliedNormalPositions.Any() && appliedNormalPositions.Where( x => x != Vector3.Zero ).Any() ) {
@@ -158,21 +150,21 @@ namespace Xande.Models.Import {
                     }
                 }
                 else {
-                    PluginLog.Debug( "Mesh contained no extras." );
+                    _logger?.Debug( "Mesh contained no extras." );
                 }
             }
             catch( Exception ex ) {
-                PluginLog.Error( "Could not add shapes." );
-                PluginLog.Error( ex.ToString() );
+                _logger?.Error( "Could not add shapes." );
+                _logger?.Error( ex.ToString() );
             }
             //}
-            VertexDataBuilder.AppliedShapePositions = AppliedShapes;
-            VertexDataBuilder.AppliedShapeNormals = AppliedShapesNormals;
+            _vertexDataBuilder.AppliedShapePositions = AppliedShapes;
+            _vertexDataBuilder.AppliedShapeNormals = AppliedShapesNormals;
             BoneCount = OriginalBoneIndexToStrings.Keys.Count;
         }
 
         public void SetBlendIndicesDict( Dictionary<int, int> dict ) {
-            VertexDataBuilder.BlendIndicesDict = dict;
+            _vertexDataBuilder.BlendIndicesDict = dict;
         }
 
         public List<ushort> GetSubmeshBoneMap( List<string> bones ) {
@@ -422,15 +414,15 @@ namespace Xande.Models.Import {
                 }
             }
             catch( Exception ex ) {
-                PluginLog.Error( $"Could not calculate bitangents. {ex.Message}" );
+                _logger?.Error( $"Could not calculate bitangents. {ex.Message}" );
             }
         }
 
         public Dictionary<int, List<byte>> GetVertexData() {
             CalculateBitangents();
             //VertexDataBuilder.Bitangents = _bitangents;
-            VertexDataBuilder.SetBitangents( _bitangents );
-            return VertexDataBuilder.GetVertexData();
+            _vertexDataBuilder.SetBitangents( _bitangents );
+            return _vertexDataBuilder.GetVertexData();
         }
 
         public IDictionary<string, Dictionary<int, List<byte>>> GetShapeVertexData( List<string>? strings = null ) {
@@ -438,7 +430,7 @@ namespace Xande.Models.Import {
 
             foreach( var shapeName in _shapeBuilders.Keys ) {
                 if( strings == null || strings.Contains( shapeName ) ) {
-                    ret.Add( shapeName, VertexDataBuilder.GetShapeVertexData( _shapeBuilders[shapeName].DifferentVertices, shapeName ) );
+                    ret.Add( shapeName, _vertexDataBuilder.GetShapeVertexData( _shapeBuilders[shapeName].DifferentVertices, shapeName ) );
                 }
             }
             return ret;
@@ -446,7 +438,7 @@ namespace Xande.Models.Import {
 
         public Dictionary<int, List<byte>> GetShapeVertexData( string shapeName ) {
             if( _shapeBuilders.ContainsKey( shapeName ) ) {
-                return VertexDataBuilder.GetShapeVertexData( _shapeBuilders[shapeName].DifferentVertices );
+                return _vertexDataBuilder.GetShapeVertexData( _shapeBuilders[shapeName].DifferentVertices );
             }
             return new Dictionary<int, List<byte>>();
 
