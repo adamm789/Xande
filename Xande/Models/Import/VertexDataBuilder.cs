@@ -1,5 +1,6 @@
 using Lumina;
 using Lumina.Data.Parsing;
+using Lumina.Models.Models;
 using SharpGLTF.Schema2;
 using System.Numerics;
 
