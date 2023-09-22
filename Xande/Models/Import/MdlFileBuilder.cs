@@ -157,7 +157,7 @@ public class MdlFileBuilder {
         Skin? skeleton = null;
         if( _root.LogicalSkins.Count == 0 ) {
             if( _origModel?.File?.ModelHeader.BoneCount > 0 ) {
-                _logger.Error( $"The input model had no skeleton/armature while the original model does. This will likely crash the game." );
+                _logger?.Error( $"The input model had no skeleton/armature while the original model does. This will likely crash the game." );
                 return (null, new List<byte>(), new List<byte>());
             }
         }
