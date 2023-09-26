@@ -29,6 +29,39 @@ public class MdlFileBuilder {
 
         _stringTableBuilder = new StringTableBuilder(_logger);
 
+        foreach (var node in root.LogicalNodes) {
+            if( node.Mesh != null ) {
+                var mesh = node.Mesh;
+                var name = node.Name;
+                var match = Regex.Match( name, @"([0-9]*\.[0-9]*)" );
+
+                if( match.Success ) {
+                    var str = match.Groups[1].Value;
+                    _logger?.Debug( $"Adding node: \"{name}\", mesh: {mesh.Name}" );
+                    var isSubmesh = str.Contains( '.' );
+                    if( isSubmesh ) {
+                        var parts = str.Split( '.' );
+                        var meshIdx = int.Parse( parts[0] );
+                        var submeshIdx = int.Parse( parts[1] );
+                        if( !_meshes.ContainsKey( meshIdx ) ) {
+                            _meshes[meshIdx] = new();
+                        }
+
+                        _meshes[meshIdx][submeshIdx] = mesh;
+                    }
+                    else {
+                        var meshIdx = int.Parse( str );
+
+                        if( !_meshes.ContainsKey( meshIdx ) ) _meshes[meshIdx] = new();
+                        _meshes[meshIdx][-1] = mesh;
+                    }
+                }
+                else {
+                    _logger?.Debug( $"Skipping \"{name}\"" );
+                }
+            }
+        }
+        /*
         foreach( var mesh in root.LogicalMeshes ) {
             var name = mesh.Name;
             var index = mesh.LogicalIndex;
@@ -62,6 +95,7 @@ public class MdlFileBuilder {
                 _logger?.Debug( $"Skipping \"{name}\"" );
             }
         }
+        */
     }
 
     public bool AddAttribute( string name, int mesh, int submesh ) {
@@ -145,7 +179,6 @@ public class MdlFileBuilder {
         }
         return ret.ToArray();
     }
-
     public async Task<(MdlFile? file, List<byte> vertexData, List<byte> indexData)> BuildAsync() {
         var start = DateTime.Now;
         var vertexDeclarations = GetVertexDeclarationStructs( _meshes.Keys.Count, _origModel?.File?.VertexDeclarations[0] );
@@ -221,13 +254,22 @@ public class MdlFileBuilder {
             _stringTableBuilder.AddShapes( meshBuilder.Shapes );
             _stringTableBuilder.AddAttributes( meshBuilder.Attributes );
         }
+
+        // TODO: if skeleton == null?
+        if( skeleton != null ) {
+            _stringTableBuilder.HierarchyBones = GetJoints( skeleton.GetJoint( 0 ).Joint.VisualChildren.ToList(), _stringTableBuilder.Bones.ToList() );
+        }
+        foreach (var mesh in _meshBuilders) {
+            mesh.SetBoneTableStruct( _stringTableBuilder.Bones.ToList(), _stringTableBuilder.HierarchyBones );
+        }
+
         var mvdTasks = new Dictionary<LuminaMeshBuilder, MeshVertexData>();
 
         foreach( var mesh in _meshBuilders ) {
             mvdTasks.Add( mesh, new(_logger) );
             mvdTasks[mesh].AddVertexData( Task.Run( () => Task.FromResult( mesh.GetVertexData() ) ) );
             foreach( var submesh in mesh.Submeshes ) {
-                foreach (var str in _stringTableBuilder.Shapes) { 
+                foreach (var str in submesh.Shapes) { 
                     if( submesh.Shapes.Contains( str ) ) {
                         mvdTasks[mesh].AddShapeVertexData( Task.Run( () => Task.FromResult( submesh.GetShapeVertexData( str ) ) ) );
                     }
@@ -237,11 +279,6 @@ public class MdlFileBuilder {
 
         if( _stringTableBuilder.Bones.Where( x => x.Contains( "n_hara" ) ).Count() > 1 ) {
             // TODO: ElementIds
-        }
-
-        // TODO: if skeleton == null?
-        if( skeleton != null ) {
-            _stringTableBuilder.HierarchyBones = GetJoints( skeleton.GetJoint( 0 ).Joint.VisualChildren.ToList(), _stringTableBuilder.Bones.ToList() );
         }
 
         var strings = _stringTableBuilder.GetStrings();
@@ -298,7 +335,8 @@ public class MdlFileBuilder {
             var meshIndexData = new List<byte>();
             var vertexCount = mesh.GetVertexCount( true, strings );
             var vertexBufferStride = GetVertexBufferStride( vertexDeclarations[i] ).ConvertAll( x => ( byte )x ).ToArray();
-            boneTableStructs.Add( mesh.GetBoneTableStruct( _stringTableBuilder.Bones.ToList(), _stringTableBuilder.HierarchyBones ) );
+            //boneTableStructs.Add( mesh.GetBoneTableStruct( _stringTableBuilder.Bones.ToList(), _stringTableBuilder.HierarchyBones ) );
+            boneTableStructs.Add( mesh.BoneTableStruct );
 
             var vertexBufferOffsets = new List<int>() { vertexBufferOffset, 0, 0 };
             for( var j = 1; j < 3; j++ ) {
@@ -603,8 +641,6 @@ public class MdlFileBuilder {
         _logger?.Debug( $"Ending. ASYNC took: {DateTime.Now - start}" );
         return (file, vertexData, indexData);
     }
-
-
 
     public (MdlFile? file, List<byte> vertexData, List<byte> indexData) Build() {
         var start = DateTime.Now;
