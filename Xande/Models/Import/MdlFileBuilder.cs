@@ -35,7 +35,7 @@ public class MdlFileBuilder {
             if( node.Mesh != null ) {
                 var mesh = node.Mesh;
                 var name = node.Name;
-                var match = Regex.Match( name, @"([0-9]*\.[0-9]*)" );
+                var match = Regex.Match( name, @"([0-9]+\.[0-9]+)" );
 
                 if( match.Success ) {
                     var str = match.Groups[1].Value;
