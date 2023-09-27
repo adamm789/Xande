@@ -137,31 +137,6 @@ namespace Xande.Models.Import {
             return vertexDict;
         }
 
-        public async Task<Dictionary<int, List<byte>>> GetVertexDataAsync() {
-            var vertexDict = new Dictionary<int, List<byte >> ();
-            var tasks = new Task<Dictionary<int, List<byte>>>[ Submeshes.Count ];
-            for (var i = 0; i < Submeshes.Count; i++) {
-                var j = i;
-                tasks[j] = Task.Run( () => Task.FromResult( Submeshes[j].GetVertexData() ) );
-            }
-
-            Task.WaitAll( tasks );
-
-            for (var i = 0; i < Submeshes.Count; i++ ) {
-                var t = await tasks[i];
-                foreach (var stream in t.Keys ) {
-                    if (!vertexDict.ContainsKey(stream)) {
-                        vertexDict.Add( stream, new() );
-
-                    }
-                    vertexDict[stream].AddRange( t[stream] );
-
-                }
-            }
-
-            return vertexDict;
-        }
-
         private void TryAddBones( SubmeshBuilder submesh ) {
             foreach( var kvp in submesh.OriginalBoneIndexToStrings ) {
                 if( !_originalBoneIndexToString.ContainsKey( kvp.Key ) ) {
