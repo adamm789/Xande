@@ -25,8 +25,6 @@ public class MdlFileBuilder {
 
     private SortedDictionary<int, SortedDictionary<int, List<string>>> _addedAttributes = new();
 
-    // files exported via Xande don't have the node names set to work with this parsing
-    // i think it has the mesh names...
     public MdlFileBuilder( ModelRoot root, Model? model, ILogger? logger = null ) {
         _root = root;
         _origModel = model;
