@@ -29,7 +29,6 @@ public class MdlFileBuilder {
         _root = root;
         _origModel = model;
         _logger = logger;
-
         _stringTableBuilder = new StringTableBuilder( _logger );
 
         foreach( var node in root.LogicalNodes ) {
