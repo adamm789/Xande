@@ -359,7 +359,6 @@ public class ModelConverter {
         }
 
         var modelFileBuilder = new MdlFileBuilder( root, orig, _logger );
-
         var (file, vertexData, indexData) = modelFileBuilder.Build();
 
         if( file == null ) {
