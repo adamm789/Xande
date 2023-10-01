@@ -316,6 +316,9 @@ public class MdlFileBuilder {
             if( vertexCount > ushort.MaxValue ) {
                 _logger?.Error( $"There are too many vertices ({vertexCount}) in mesh {i}. Limit of {ushort.MaxValue}" );
             }
+            if (vertexCount > ushort.MaxValue) {
+                _logger?.Error( $"There are too many vertices ({vertexCount}) in mesh {i}. Limit of {ushort.MaxValue}" );
+            }
 
             meshStructs.Add( new() {
                 VertexCount = ( ushort )vertexCount,
