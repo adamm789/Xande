@@ -29,6 +29,7 @@ public class MdlFileBuilder {
         _root = root;
         _origModel = model;
         _logger = logger;
+
         _stringTableBuilder = new StringTableBuilder( _logger );
 
         foreach( var node in root.LogicalNodes ) {
@@ -231,7 +232,7 @@ public class MdlFileBuilder {
             // TODO: ?
         }
 
-        if (_stringTableBuilder.Bones.Count == 0) {
+        if( _stringTableBuilder.Bones.Count == 0 ) {
             _stringTableBuilder.AddBone( "n_hara" );
         }
 
@@ -320,7 +321,7 @@ public class MdlFileBuilder {
             if( vertexCount > ushort.MaxValue ) {
                 _logger?.Error( $"There are too many vertices ({vertexCount}) in mesh {i}. Limit of {ushort.MaxValue}" );
             }
-            if (vertexCount > ushort.MaxValue) {
+            if( vertexCount > ushort.MaxValue ) {
                 _logger?.Error( $"There are too many vertices ({vertexCount}) in mesh {i}. Limit of {ushort.MaxValue}" );
             }
 
