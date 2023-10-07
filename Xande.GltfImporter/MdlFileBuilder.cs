@@ -232,10 +232,6 @@ public class MdlFileBuilder {
             // TODO: ?
         }
 
-        if( _stringTableBuilder.Bones.Count == 0 ) {
-            _stringTableBuilder.AddBone( "n_hara" );
-        }
-
         if( skeleton != null ) {
             _stringTableBuilder.HierarchyBones = GetJoints( skeleton.GetJoint( 0 ).Joint.VisualChildren.ToList(), _stringTableBuilder.Bones.ToList() );
         }
