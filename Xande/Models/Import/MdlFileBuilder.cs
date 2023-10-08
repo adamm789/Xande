@@ -1,7 +1,7 @@
 using Lumina;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing;
-using Lumina.Models.Models;
+using Xande.ModelData.Models;
 using SharpGLTF.Schema2;
 using System.Collections;
 using System.Collections.Immutable;

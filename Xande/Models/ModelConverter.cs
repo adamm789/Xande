@@ -2,19 +2,20 @@ using System.Drawing;
 using System.Numerics;
 using Dalamud.Logging;
 using Lumina.Data.Parsing;
-using Lumina.Models.Models;
+using Xande.ModelData.Models;
 using SharpGLTF.Materials;
 using SharpGLTF.Scenes;
 using SharpGLTF.Schema2;
 using Xande.Files;
 using Xande.Havok;
 using Xande.Models.Export;
-using Xande.Models.Import;
-using Mesh = Lumina.Models.Models.Mesh;
+using Mesh = Xande.ModelData.Models.Mesh;
 using Lumina.Data.Files;
 using Lumina.Data;
 using SharpGLTF.Geometry;
 using SharpGLTF.Geometry.VertexTypes;
+using Lumina;
+using Xande.Models.Import;
 
 // ReSharper disable InconsistentNaming
 
@@ -41,13 +42,12 @@ public class ModelConverter {
     private Dictionary<string, Lumina.Models.Materials.Material> _materials = new();
     private Dictionary<string, Texture> _textures = new();
 
-    private DalamudLogger _logger = new();
+    private ILogger? _logger;
 
     public ModelConverter( LuminaManager lumina, IPathResolver? pathResolver = null ) {
         _lumina = lumina;
         _pbd = lumina.GetPbdFile();
         _pathResolver = pathResolver;
-        _havokConverter = new HavokConverter();
     }
 
     /*
