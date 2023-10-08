@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Lumina;
 using Lumina.Data.Parsing;
 
 namespace Xande.ModelData.Models {
@@ -23,7 +24,10 @@ namespace Xande.ModelData.Models {
         /// </summary>
         public string[] Bones;
 
-        public Submesh( Model model, int meshIndex, int subMeshIndex ) {
+        private ILogger? _logger;
+
+        public Submesh( Model model, int meshIndex, int subMeshIndex, ILogger? logger = null) {
+            _logger = logger;
             var currentMesh = model.File.Meshes[meshIndex];
             int subMeshListIndex = currentMesh.SubMeshIndex + subMeshIndex;
             var currentSubMesh = model.File.Submeshes[subMeshListIndex];
@@ -48,6 +52,10 @@ namespace Xande.ModelData.Models {
             var affectedBoneTable = new List<string>();
             int boneEndIndex = currentSubMesh.BoneStartIndex + currentSubMesh.BoneCount;
             for( int i = currentSubMesh.BoneStartIndex; i < boneEndIndex; i++ ) {
+                if (i >= model.File.SubmeshBoneMap.Length) {
+                    _logger?.Warning( $"SubmeshBoneMap out of range: {currentSubMesh.BoneStartIndex} -> {i} -> {boneEndIndex}" );
+                    continue;
+                }
                 var boneIndex = model.File.SubmeshBoneMap[i];
                 var boneOffset = model.File.BoneNameOffsets[boneIndex];
                 var boneName = model.StringOffsetToStringMap[( int )boneOffset];

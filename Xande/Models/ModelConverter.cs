@@ -307,7 +307,6 @@ public class ModelConverter {
 
                 meshBuilder.BuildVertices();
 
-                _logger?.Debug( $"{xivMesh.Submeshes.Length}" );
                 if( xivMesh.Submeshes.Length > 0 ) {
                     for( var i = 0; i < xivMesh.Submeshes.Length; i++ ) {
                         var xivSubmesh = xivMesh.Submeshes[i];

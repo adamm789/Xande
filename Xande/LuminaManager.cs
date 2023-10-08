@@ -19,6 +19,8 @@ public class LuminaManager {
     /// <summary>Used to resolve paths to files. Return a path (either on disk or in SqPack) to override file resolution.</summary>
     public Func< string, string? >? FileResolver;
 
+    private ILogger? _logger;
+
     /// <summary> Construct a LuminaManager instance. </summary>
     public LuminaManager() {
         var luminaOptions = new LuminaOptions {
@@ -37,7 +39,10 @@ public class LuminaManager {
         else { throw new Exception( "Could not find process data to create lumina." ); }
     }
 
-    public LuminaManager( Func< string, string? > fileResolver ) : this() => FileResolver = fileResolver;
+    public LuminaManager( Func<string, string?> fileResolver, ILogger? logger = null ) : this() {
+        FileResolver = fileResolver;
+        _logger = logger;
+    }
 
     public T? GetFile< T >( string path, string? origPath = null ) where T : FileResource {
         var actualPath = FileResolver?.Invoke( path ) ?? path;
@@ -50,7 +55,7 @@ public class LuminaManager {
     public Model GetModel( string path ) {
         var mdlFile = GetFile< MdlFile >( path );
         return mdlFile != null
-            ? new Model( mdlFile )
+            ? new Model( mdlFile, logger : _logger )
             : throw new FileNotFoundException();
     }
 

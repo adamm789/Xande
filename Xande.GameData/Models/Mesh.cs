@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Text;
+using Lumina;
 using Lumina.Data;
 using Lumina.Data.Parsing;
 using Lumina.Extensions;
@@ -74,10 +75,13 @@ namespace Xande.ModelData.Models {
         /// </summary>
         public Material Material { get; private set; }
 
-        public Mesh( Model model, int index, MeshType[] types ) {
+        private ILogger? _logger;
+
+        public Mesh( Model model, int index, MeshType[] types, ILogger? logger = null) {
             Parent = model;
             MeshIndex = index;
             Types = types;
+            _logger = logger;
             BuildMesh();
         }
 
@@ -95,7 +99,7 @@ namespace Xande.ModelData.Models {
             var currentMesh = Parent.File.Meshes[MeshIndex];
             Submeshes = new Submesh[currentMesh.SubMeshCount];
             for( var i = 0; i < currentMesh.SubMeshCount; i++ )
-                Submeshes[i] = new Submesh( Parent, MeshIndex, i );
+                Submeshes[i] = new Submesh( Parent, MeshIndex, i , _logger);
         }
 
         //TODO is this necessary?

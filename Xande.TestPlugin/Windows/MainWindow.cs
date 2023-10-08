@@ -63,8 +63,9 @@ public class MainWindow : Window, IDisposable {
             MaximumSize = new Vector2( 1000, 500 ),
         };
 
-        _luminaManager = new LuminaManager( origPath => Plugin.Configuration.ResolverOverrides.TryGetValue( origPath, out var newPath ) ? newPath : null );
-        _modelConverter = new ModelConverter( _luminaManager, new PenumbraIPCPathResolver( Service.PluginInterface ), new DalamudLogger() );
+        var logger = new DalamudLogger();
+        _luminaManager = new LuminaManager( origPath => Plugin.Configuration.ResolverOverrides.TryGetValue( origPath, out var newPath ) ? newPath : null, logger );
+        _modelConverter = new ModelConverter( _luminaManager, new PenumbraIPCPathResolver( Service.PluginInterface ), logger );
         _sklbResolver = new SklbResolver( Service.PluginInterface );
         IsOpen = Plugin.Configuration.AutoOpen;
     }
@@ -214,8 +215,7 @@ public class MainWindow : Window, IDisposable {
             }
         }
         ImGui.SameLine();
-        /*
-        Currently, some model parsing will be needed before we can export modded models
+        //Currently, some model parsing will be needed before we can export modded models
         if( ImGui.BeginCombo( "ExportType", $"{_exportModelType}" ) ) {
             if( ImGui.Selectable( $"{ExportModelType.UNMODDED}" ) ) {
                 _exportModelType = ExportModelType.UNMODDED;
@@ -223,12 +223,11 @@ public class MainWindow : Window, IDisposable {
             if( ImGui.Selectable( $"{ExportModelType.DEFAULT}" ) ) {
                 _exportModelType = ExportModelType.DEFAULT;
             }
-            if( ImGui.Selectable( $"{ExportModelType.CHARACTER}" ) ) {
-                _exportModelType = ExportModelType.CHARACTER;
+            if( ImGui.Selectable( $"{ExportModelType.PLAYER}" ) ) {
+                _exportModelType = ExportModelType.PLAYER;
             }
             ImGui.EndCombo();
         }
-        */
     }
     private void DrawStatus() {
         var status = _exportStatus switch {
@@ -274,8 +273,8 @@ public class MainWindow : Window, IDisposable {
                 _exportStatus = ExportStatus.ExportingModel;
 
                 try {
-                    //_modelConverter.ExportModel( tempPath, models, skellies, deform, _exportModelType );
-                    _modelConverter.ExportModel( tempPath, models, skellies, deform, ExportModelType.UNMODDED );
+                    _modelConverter.ExportModel( tempPath, models, skellies, deform, _exportModelType );
+                    //_modelConverter.ExportModel( tempPath, models, skellies, deform, ExportModelType.UNMODDED );
                     PluginLog.Information( "Exported model to {0}", tempPath );
                     _exportStatus = ExportStatus.Done;
                 }

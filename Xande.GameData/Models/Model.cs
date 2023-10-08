@@ -30,6 +30,8 @@ namespace Xande.ModelData.Models {
         public Dictionary<int, string> StringOffsetToStringMap { get; private set; }
         public int VariantId { get; private set; }
 
+        private ILogger? _logger;
+
         /// <summary>
         /// Creates a new Model instance using the provided MdlFile, level of detail,
         /// and variant ID, without resolving any game data.
@@ -41,13 +43,14 @@ namespace Xande.ModelData.Models {
         /// depending on data from an ImcFile.</param>
         /// <exception cref="ArgumentException">The specified MdlFile does not contain
         /// the specified ModelLod.</exception>
-        public Model( MdlFile mdlFile, ModelLod lod = ModelLod.High, int variantId = 1 ) {
+        public Model( MdlFile mdlFile, ModelLod lod = ModelLod.High, int variantId = 1, ILogger? logger = null ) {
             if( ( uint )lod > mdlFile.FileHeader.LodCount )
                 throw new ArgumentException( "The given model does not have the requested LoD.", nameof( lod ) );
 
             File = mdlFile;
             Lod = lod;
             VariantId = variantId;
+            _logger = logger;
             BuildModel();
         }
 
@@ -177,7 +180,7 @@ namespace Xande.ModelData.Models {
             Meshes = new Mesh[totalMeshes];
 
             for( var i = 0; i < Meshes.Length; i++ ) {
-                Meshes[i] = new Mesh( this, i, GetMeshTypes( i ) );
+                Meshes[i] = new Mesh( this, i, GetMeshTypes( i ), _logger );
             }
         }
 
