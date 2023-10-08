@@ -11,8 +11,8 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
-namespace Xande.Models.Import {
-    internal class LuminaMeshBuilder {
+namespace Xande.GltfImporter {
+    internal class MeshBuilder {
         public List<SubmeshBuilder> Submeshes = new();
         public Dictionary<int, List<byte>> VertexData = new();
         public SortedSet<string> Attributes = new();
@@ -23,13 +23,11 @@ namespace Xande.Models.Import {
         private readonly ILogger? _logger;
 
         private Dictionary<int, string> _originalBoneIndexToString = new();
-        //private MdlStructs.VertexDeclarationStruct _vertexDeclarationStruct;
-        private Dictionary<int, int> _blendIndicesDict;
+        private Dictionary<int, int> _blendIndicesDict = new();
 
         public uint IndexCount { get; protected set; } = 0;
 
-        public LuminaMeshBuilder( List<SubmeshBuilder> submeshes, ILogger? logger = null) {
-            //_vertexDeclarationStruct = vds;
+        public MeshBuilder( List<SubmeshBuilder> submeshes, ILogger? logger = null) {
             _logger = logger;
             foreach( var sm in submeshes ) {
                 Submeshes.Add( sm );

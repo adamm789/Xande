@@ -41,5 +41,6 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Xande.GameData\Xande.ModelData.csproj" />
+      <ProjectReference Include="..\Xande.GltfImporter\Xande.GltfImporter.csproj" />
     </ItemGroup>
 </Project>
