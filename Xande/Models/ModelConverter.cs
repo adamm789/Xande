@@ -269,7 +269,7 @@ public class ModelConverter {
             foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
                 xivMesh.Material.Update( _lumina.GameData );
                 var mtrlPath = xivMesh.Material.ResolvedPath ?? xivMesh.Material.MaterialPath;
-                var resolvedMtrlPath = ResolvePath( mtrlPath );
+                var resolvedMtrlPath = ResolvePath( mtrlPath, exportType );
                 var xivMaterial = _lumina.GetMaterial( resolvedMtrlPath, xivMesh.Material.MaterialPath );
                 var glTFMaterial = new MaterialBuilder {
                     Name = xivMesh.Material.MaterialPath
