@@ -12,7 +12,10 @@ namespace Xande.ModelData.Models {
             var ret = new ShapeMesh[file.ModelHeader.ShapeMeshCount];
             var idx = 0;
 
-            var meshDict = meshes.ToDictionary( m => file.Meshes[m.MeshIndex].StartIndex, m => m );
+            var meshDict = new Dictionary<uint, Mesh>();
+            foreach (var mesh in meshes) {
+                meshDict.TryAdd( file.Meshes[mesh.MeshIndex].StartIndex, mesh );
+            }
 
             foreach( var shapeMeshStruct in file.ShapeMeshes ) {
 
