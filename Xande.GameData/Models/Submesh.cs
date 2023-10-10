@@ -54,7 +54,7 @@ namespace Xande.ModelData.Models {
             for( int i = currentSubMesh.BoneStartIndex; i < boneEndIndex; i++ ) {
                 if (i >= model.File.SubmeshBoneMap.Length) {
                     _logger?.Warning( $"SubmeshBoneMap out of range: {currentSubMesh.BoneStartIndex} -> {i} -> {boneEndIndex}" );
-                    continue;
+                    break;
                 }
                 var boneIndex = model.File.SubmeshBoneMap[i];
                 var boneOffset = model.File.BoneNameOffsets[boneIndex];
