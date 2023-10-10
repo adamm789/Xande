@@ -18,6 +18,7 @@ public class MdlFileBuilder {
     private ModelRoot _root;
     private Model? _origModel;
     private ILogger? _logger;
+    private Regex meshSubmeshRegex = new Regex( @"([0-9]+\.[0-9]+)" );
 
     private SortedDictionary<int, SortedDictionary<int, Mesh>> _meshes = new();
     private StringTableBuilder _stringTableBuilder;
@@ -33,38 +34,61 @@ public class MdlFileBuilder {
         _logger = logger;
 
         _stringTableBuilder = new StringTableBuilder( _logger );
+        SetMeshesFromNodes();
+        if (_meshes.Count == 0) {
+            _logger?.Warning( $" Could not process model from nodes.\n" +
+                $"Now trying to process with meshes." );
+            SetMeshesFromMeshes();
+        }
+        if (_meshes.Count == 0) {
+            _logger?.Error( $"Could not process model." );
+            throw new ArgumentException("No valid meshes were found in the model.");
+        }
+    }
 
-        foreach( var node in root.LogicalNodes ) {
+    // This behaves simiarly to how TexTools processes models based on names
+    private void SetMeshesFromNodes() {
+        foreach( var node in _root.LogicalNodes ) {
             if( node.Mesh != null ) {
                 var mesh = node.Mesh;
                 var name = node.Name;
                 if( name is null ) continue;
-                var match = Regex.Match( name, @"([0-9]+\.[0-9]+)" );
-                if( match.Success ) {
-
-                    _logger?.Debug( $"Adding: {name}" );
-                    var str = match.Groups[1].Value;
-
-                    var isSubmesh = str.Contains( '.' );
-                    if( isSubmesh ) {
-                        var parts = str.Split( '.' );
-                        var meshIdx = int.Parse( parts[0] );
-                        var submeshIdx = int.Parse( parts[1] );
-                        if( !_meshes.ContainsKey( meshIdx ) ) { _meshes[meshIdx] = new(); }
-
-                        _meshes[meshIdx][submeshIdx] = mesh;
-                    }
-                    else {
-                        var meshIdx = int.Parse( str );
-
-                        if( !_meshes.ContainsKey( meshIdx ) ) _meshes[meshIdx] = new();
-                        _meshes[meshIdx][-1] = mesh;
-                    }
-                }
-                else {
-                    _logger?.Debug( $"Skipping \"{name}\"" );
-                }
+                AddMesh( mesh, name );
             }
+        }
+    }
+
+    private void SetMeshesFromMeshes() {
+        foreach (var mesh in _root.LogicalMeshes ) {
+            var name = mesh.Name;
+            if( name is null ) continue;
+            AddMesh( mesh, name );
+        }
+    }
+
+    private void AddMesh( Mesh mesh, string name ) {
+        var match = meshSubmeshRegex.Match( name );
+        var str = match.Groups[1].Value;
+        if( match.Success ) {
+            _logger?.Debug( $"Adding {name}" );
+            var isSubmesh = str.Contains( '.' );
+            if( isSubmesh ) {
+                var parts = str.Split( '.' );
+                var meshIdx = int.Parse( parts[0] );
+                var submeshIdx = int.Parse( parts[1] );
+                if( !_meshes.ContainsKey( meshIdx ) ) { _meshes[meshIdx] = new(); }
+
+                _meshes[meshIdx][submeshIdx] = mesh;
+            }
+            else {
+                var meshIdx = int.Parse( str );
+
+                if( !_meshes.ContainsKey( meshIdx ) ) _meshes[meshIdx] = new();
+                _meshes[meshIdx][-1] = mesh;
+            }
+        }
+        else {
+            _logger?.Verbose( $"Skipping mesh: {name}" );
         }
     }
 
@@ -83,7 +107,7 @@ public class MdlFileBuilder {
     private List<string> GetJoints( List<Node> children, List<string> matches ) {
         List<string> ret = new();
         if( children != null && children.Count() > 0 ) {
-            for( int i = 0; i < children.Count(); i++ ) {
+            for( var i = 0; i < children.Count(); i++ ) {
                 if( matches.Contains( children[i].Name ) ) { ret.Add( children[i].Name ); }
                 ret.AddRange( GetJoints( children[i].VisualChildren.ToList(), matches ) );
             }
@@ -474,7 +498,7 @@ public class MdlFileBuilder {
         file.StringCount = ( ushort )_stringTableBuilder.GetStringCount();
         file.Strings = _stringTableBuilder.GetBytes();
         file.ModelHeader = new() {
-            Radius = _origModel?.File.ModelHeader.Radius ?? 0,
+            Radius = _origModel?.File?.ModelHeader.Radius ?? 0,
             MeshCount = ( ushort )meshStructs.Count,
             AttributeCount = ( ushort )_stringTableBuilder.Attributes.Count,
             SubmeshCount = ( ushort )submeshStructs.Count,
