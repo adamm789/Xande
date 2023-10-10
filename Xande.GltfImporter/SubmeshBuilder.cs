@@ -80,7 +80,7 @@ namespace Xande.GltfImporter {
                 }
                 else {
                     if( material != _material || material != MaterialPath ) {
-                        _logger?.Error( $"Found more than one material name. Original: \"{MaterialPath}\" vs \"{material}\"" );
+                        _logger?.Warning( $"Found more than one material name. Original: \"{MaterialPath}\" vs \"{material}\"" );
                     }
                 }
             }
