@@ -81,12 +81,13 @@ public class ModelConverter {
     */
 
 
-    private void ComposeTextures( MaterialBuilder glTFMaterial, Lumina.Models.Materials.Material xivMaterial, string outputDir ) {
+    private void ComposeTextures( MaterialBuilder glTFMaterial, Lumina.Models.Materials.Material xivMaterial, string outputDir, ExportModelType exportType = ExportModelType.DEFAULT ) {
         var xivTextureMap = new Dictionary<TextureUsage, Bitmap>();
 
         foreach( var xivTexture in xivMaterial.Textures ) {
             if( xivTexture.TexturePath == "dummy.tex" ) { continue; }
-            xivTextureMap.Add( xivTexture.TextureUsageRaw, _lumina.GetTextureBuffer( xivTexture ) );
+            var resolvedTexturePath = ResolvePath(xivTexture.TexturePath, exportType );
+            xivTextureMap.Add( xivTexture.TextureUsageRaw, _lumina.GetTextureBuffer( resolvedTexturePath, xivTexture.TexturePath ) );
         }
 
         if( xivMaterial.ShaderPack == "character.shpk" ) {
@@ -272,10 +273,10 @@ public class ModelConverter {
                     Name = xivMesh.Material.MaterialPath
                 };
                 try {
-                    ComposeTextures( glTFMaterial, xivMaterial, outputDir );
+                    ComposeTextures( glTFMaterial, xivMaterial, outputDir, exportType );
                 }
                 catch( Exception ex ) {
-                    PluginLog.Debug( ex, $"Could not create textures from: {glTFMaterial}" );
+                    PluginLog.Debug( ex, $"Could not create textures from: {glTFMaterial.Name}" );
                 }
 
                 var boneSet = xivMesh.BoneTable();
