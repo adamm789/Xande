@@ -249,8 +249,6 @@ public class ModelConverter {
     /// <param name="skeletons">A list of HavokXml instances, obtained from .sklb paths. Care must be taken to provide skeletons in the correct order, or bone map resolving may fail.</param>
     /// <param name="deform">A race code to deform the mesh to, for full body exports.</param>
     public void ExportModel( string outputDir, string[] models, HavokXml[] skeletons, ushort? deform = null, ExportModelType exportType = ExportModelType.DEFAULT ) {
-        // TT-exported mdls have incorrect SubmeshBoneMaps (or at least, incompatible with standard Lumina)
-        // TODO: Try to correct the submeshbonemap to enable exporting modded models?
         var boneMap = GetBoneMap( skeletons, out var root );
         var joints = boneMap.Values.ToArray();
         var raceDeformer = new RaceDeformer( _pbd, boneMap );
@@ -313,8 +311,11 @@ public class ModelConverter {
                         var subMesh = meshBuilder.BuildSubmesh( xivSubmesh );
                         subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
                         meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), subMesh, ( int )xivSubmesh.IndexOffset,
-                            ( int )( xivSubmesh.IndexOffset + xivSubmesh.IndexNum ) );
-                        if( useSkinning ) { glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints ); } else { glTFScene.AddRigidMesh( subMesh, Matrix4x4.Identity ); }
+                            ( int )( xivSubmesh.IndexOffset + xivSubmesh.IndexNum ));
+                        if( useSkinning ) {
+                            var instance = glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints );
+                            instance.WithName( subMesh.Name );
+                        } else { glTFScene.AddRigidMesh( subMesh, Matrix4x4.Identity ); }
                     }
                 }
                 else {
