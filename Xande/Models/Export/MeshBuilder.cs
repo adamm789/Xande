@@ -4,6 +4,7 @@ using SharpGLTF.Geometry;
 using SharpGLTF.Geometry.VertexTypes;
 using SharpGLTF.Materials;
 using Xande.Files;
+using Dalamud.Logging;
 
 namespace Xande.Models.Export;
 
@@ -116,21 +117,25 @@ public class MeshBuilder {
     }
 
     /// <summary>Builds shape keys (known as morph targets in glTF).</summary>
-    public void BuildShapes( IReadOnlyList< Shape > shapes, IMeshBuilder< MaterialBuilder > builder, int subMeshStart, int subMeshEnd ) {
+    public void BuildShapes( IReadOnlyList< Shape > shapes, IMeshBuilder< MaterialBuilder > builder, int subMeshStart, int subMeshEnd, IEnumerable<string>? attributes = null ) {
         var primitive  = builder.Primitives.First();
         var triangles  = primitive.Triangles;
         var vertices   = primitive.Vertices;
         var vertexList = new List< (IVertexGeometry, IVertexGeometry) >();
-        var nameList   = new List< Shape >();
+        //var nameList   = new List< Shape >();
+        var nameList = new List<string>();
         for( var i = 0; i < shapes.Count; ++i ) {
             var shape = shapes[ i ];
             vertexList.Clear();
             foreach( var shapeMesh in shape.Meshes.Where( m => m.AssociatedMesh == _mesh ) ) {
-                foreach( var (baseIdx, otherIdx) in shapeMesh.Values ) {
+                for( var j = 0; j < shapeMesh.Values.Length; j++ ) {
+                    var (baseIdx, otherIdx) = shapeMesh.Values[j];
                     if( baseIdx < subMeshStart || baseIdx >= subMeshEnd ) continue; // different submesh?
                     var triIdx    = ( baseIdx - subMeshStart ) / 3;
                     var vertexIdx = ( baseIdx - subMeshStart ) % 3;
 
+                    // TODO: For some reason this sometimes gets out of bounds
+                    // Incorrect ShapeMesh data?
                     var triA = triangles[ triIdx ];
                     var vertexA = vertices[ vertexIdx switch {
                         0 => triA.A,
@@ -147,11 +152,17 @@ public class MeshBuilder {
             var morph = builder.UseMorphTarget( nameList.Count );
             foreach( var (a, b) in vertexList ) { morph.SetVertex( a, b ); }
 
-            nameList.Add( shape );
+            nameList.Add( shape.Name );
         }
 
         var data = new ExtraDataManager();
-        data.AddShapeNames( nameList );
+        if (attributes != null) {
+            foreach( var atr in attributes ) {
+                nameList.Add( atr );
+                builder.UseMorphTarget( nameList.Count );
+            }
+        }
+        data.AddNames( nameList );
         builder.Extras = data.Serialize();
     }
 

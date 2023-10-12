@@ -311,7 +311,7 @@ public class ModelConverter {
                         var subMesh = meshBuilder.BuildSubmesh( xivSubmesh );
                         subMesh.Name = $"{name}_{xivMesh.MeshIndex}.{i}";
                         meshBuilder.BuildShapes( xivModel.Shapes.Values.ToArray(), subMesh, ( int )xivSubmesh.IndexOffset,
-                            ( int )( xivSubmesh.IndexOffset + xivSubmesh.IndexNum ));
+                            ( int )( xivSubmesh.IndexOffset + xivSubmesh.IndexNum ), xivSubmesh.Attributes );
                         if( useSkinning ) {
                             var instance = glTFScene.AddSkinnedMesh( subMesh, Matrix4x4.Identity, joints );
                             instance.WithName( subMesh.Name );

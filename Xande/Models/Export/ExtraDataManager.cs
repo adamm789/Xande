@@ -6,6 +6,10 @@ namespace Xande.Models.Export;
 public class ExtraDataManager {
     private readonly Dictionary< string, object > _extraData = new();
 
+    public void AddNames(IEnumerable<string> names ) {
+        _extraData.Add( "targetNames", names.ToArray() );
+    }
+
     public void AddShapeNames( IEnumerable< Shape > shapes ) {
         _extraData.Add( "targetNames", shapes.Select( s => s.Name ).ToArray() );
     }
