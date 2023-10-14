@@ -13,8 +13,12 @@ namespace Xande.ModelData.Models {
             var idx = 0;
 
             var meshDict = new Dictionary<uint, Mesh>();
-            foreach (var mesh in meshes) {
-                meshDict.TryAdd( file.Meshes[mesh.MeshIndex].StartIndex, mesh );
+            foreach (var m in meshes) {
+                var mesh = file.Meshes[m.MeshIndex];
+                // TexTools will sometimes add empty meshes that contain no vertices
+                if( mesh.VertexCount > 0 ) {
+                    meshDict.TryAdd( file.Meshes[m.MeshIndex].StartIndex, m );
+                }
             }
 
             foreach( var shapeMeshStruct in file.ShapeMeshes ) {
