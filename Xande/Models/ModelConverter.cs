@@ -263,14 +263,18 @@ public class ModelConverter {
             var raceCode = raceDeformer.RaceCodeFromPath( path );
 
             foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
+                // todo: material variants seems to screw up resolving the path
+                // the xivMesh.Material.ResolvedPath seems to default to v0001, which may not always exist
                 xivMesh.Material.Update( _lumina.GameData );
-                var mtrlPath = xivMesh.Material.ResolvedPath ?? xivMesh.Material.MaterialPath;
-                var resolvedMtrlPath = ResolvePath( mtrlPath, exportType );
-                var xivMaterial = _lumina.GetMaterial( resolvedMtrlPath, xivMesh.Material.MaterialPath );
+
                 var glTFMaterial = new MaterialBuilder {
                     Name = xivMesh.Material.MaterialPath
                 };
+
                 try {
+                    var mtrlPath = xivMesh.Material.ResolvedPath ?? xivMesh.Material.MaterialPath;
+                    var resolvedMtrlPath = ResolvePath( mtrlPath, exportType );
+                    var xivMaterial = _lumina.GetMaterial( resolvedMtrlPath, xivMesh.Material.MaterialPath );
                     ComposeTextures( glTFMaterial, xivMaterial, outputDir, exportType );
                 }
                 catch( Exception ex ) {
