@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Xande.GltfImporter {
+namespace Xande.Models {
     public class MdlFileWriter : IDisposable {
         private MdlFile _file;
         private BinaryWriter _w;
