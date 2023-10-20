@@ -266,10 +266,13 @@ public class ModelConverter {
                 // todo: material variants seems to screw up resolving the path
                 // the xivMesh.Material.ResolvedPath seems to default to v0001, which may not always exist
                 xivMesh.Material.Update( _lumina.GameData );
-
                 var glTFMaterial = new MaterialBuilder {
                     Name = xivMesh.Material.MaterialPath
                 };
+                try {
+                    ComposeTextures( glTFMaterial, xivMaterial, outputDir );
+                }
+                catch { }
 
                 try {
                     var mtrlPath = xivMesh.Material.ResolvedPath ?? xivMesh.Material.MaterialPath;
@@ -309,6 +312,7 @@ public class ModelConverter {
 
                 meshBuilder.BuildVertices();
 
+                _logger?.Debug( $"{xivMesh.Submeshes.Length}" );
                 if( xivMesh.Submeshes.Length > 0 ) {
                     for( var i = 0; i < xivMesh.Submeshes.Length; i++ ) {
                         var xivSubmesh = xivMesh.Submeshes[i];
@@ -385,6 +389,38 @@ public class ModelConverter {
             PluginLog.Error( ex, $"Could not process model from {gltfPath}" );
             return Array.Empty<byte>();
         }
+    }
+
+    public async Task<byte[]> ImportModelAsync( string gltfPath, string origModel ) {
+        throw new Exception();
+        /*
+        PluginLog.Warning( $"Importing Async. Shapes are incorrect." );
+        PluginLog.Debug( $"Importing model" );
+        var root = ModelRoot.Load( gltfPath );
+
+        Model? orig = null;
+        try {
+            orig = _lumina.GetModel( origModel );
+        }
+        catch( FileNotFoundException ) {
+            PluginLog.Error( $"Could not find original model: \"{origModel}\"" );
+            //return Array.Empty<byte>();
+        }
+
+        var modelFileBuilder = new MdlFileBuilder( root, orig, _logger );
+        //var (file, vertexData, indexData) = await modelFileBuilder.BuildAsync();
+
+        if( file == null ) {
+            PluginLog.Debug( "Could not build MdlFile" );
+            return Array.Empty<byte>();
+        }
+
+        using var stream = new MemoryStream();
+        using var modelWriter = new MdlFileWriter( file, stream );
+
+        modelWriter.WriteAll( vertexData, indexData );
+        return stream.ToArray();
+        */
     }
 
     public async Task<byte[]> ImportModelAsync( string gltfPath, string origModel ) {

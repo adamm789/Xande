@@ -48,26 +48,20 @@
       "xande": {
         "type": "Project",
         "dependencies": {
+          "G:\\Programming\\FF\\Xande\\Xande.GameData\\Xande.ModelData.csproj": "[1.0.0, )",
           "SharpGLTF.Core": "[1.0.0-alpha0028, )",
           "SharpGLTF.Toolkit": "[1.0.0-alpha0028, )",
           "System.Drawing.Common": "[8.0.0-preview.2.23128.3, )",
-          "Xande.GltfImporter": "[1.0.0, )",
-          "Xande.ModelData": "[1.0.0, )"
+          "Xande.GltfImporter": "[1.0.0, )"
         }
       },
       "xande.gltfimporter": {
         "type": "Project",
         "dependencies": {
+          "G:\\Programming\\FF\\Xande\\Xande.GameData\\Xande.ModelData.csproj": "[1.0.0, )",
           "Lumina": "[3.11.0, )",
           "SharpGLTF.Core": "[1.0.0-alpha0028, )",
-          "SharpGLTF.Toolkit": "[1.0.0-alpha0028, )",
-          "Xande.ModelData": "[1.0.0, )"
-        }
-      },
-      "xande.modeldata": {
-        "type": "Project",
-        "dependencies": {
-          "Lumina": "[3.11.0, )"
+          "SharpGLTF.Toolkit": "[1.0.0-alpha0028, )"
         }
       }
     }
