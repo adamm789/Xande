@@ -8,10 +8,10 @@ using Dalamud.Logging;
 using ImGuiNET;
 using Lumina.Data;
 using Xande.Files;
+using Xande.GltfImporter;
 using Xande.Havok;
 using Xande.Models;
 using Xande.Models.Export;
-
 namespace Xande.TestPlugin.Windows;
 
 public class MainWindow : Window, IDisposable {
@@ -88,9 +88,15 @@ public class MainWindow : Window, IDisposable {
             ImGui.EndTabItem();
         }
 
-        if( ImGui.BeginTabItem( "Import .gltf" ) ) {
+        if( ImGui.BeginTabItem( "Import .gltf V1" ) ) {
             DrawStatus();
             DrawImportTab();
+            ImGui.EndTabItem();
+        }
+
+        if( ImGui.BeginTabItem( "Import .gltf V2" ) ) {
+            DrawStatus();
+            DrawImportTab2();
             ImGui.EndTabItem();
         }
 
@@ -131,6 +137,71 @@ public class MainWindow : Window, IDisposable {
         } catch { return false; }
     }
 
+
+    }
+    ModelViewer _viewer = new();
+    MdlFileBuilder? _builder = null;
+
+    bool hasLoaded = false;
+
+    private void DrawImportTab2() {
+        var cra = ImGui.GetContentRegionAvail();
+        var textSize = cra with { Y = cra.Y / 2 - 20 };
+
+        if( ImGui.Button( "Browse .gltf" ) ) {
+            OpenFileDialog( "Select gltf file", GltfFilter, path => {
+                _gltfPath = path;
+            } );
+            hasLoaded = false;
+        }
+        ImGui.SameLine();
+        ImGui.InputText( "gltf file", ref _gltfPath, 1024 );
+
+        if( ImGui.Button( "Load gltf" ) && !hasLoaded ) {
+            if( File.Exists( _gltfPath ) ) {
+                try {
+                    _exportStatus = ExportStatus.ExportingModel;
+                    _builder = _modelConverter.GetModel( _gltfPath, _modelPaths );
+
+                    hasLoaded = true;
+                }
+                catch( Exception ex ) {
+                    PluginLog.Debug( $"Failed to get model. {ex.Message}" );
+                    hasLoaded = false;
+                }
+                finally {
+                    _exportStatus = ExportStatus.Idle;
+                }
+            }
+        }
+
+        if( _builder != null ) {
+            _viewer.Draw( _builder );
+        }
+
+        if( ImGui.Button( $"Convert" ) && _builder != null ) {
+            Task.Run( async () => {
+                try {
+                    _exportStatus = ExportStatus.ExportingModel;
+
+                    var data = _modelConverter.GetData( _builder );
+                    if( data != null ) {
+                        SaveFileDialog( "Save .mdl", "FFXIV Mdl{.mdl}", "model.mdl", ".mdl", path2 => {
+                            PluginLog.Debug( $"Writing file to: {path2}" );
+                            File.WriteAllBytes( path2, data );
+                            Process.Start( "explorer.exe", Path.GetDirectoryName( path2 ) );
+                        } );
+                    }
+                }
+                catch( Exception ex ) {
+                    PluginLog.Debug( $"Could not write data. {ex.Message}" );
+                }
+                finally {
+                    _exportStatus = ExportStatus.Idle;
+                }
+            } );
+        }
+    }
     private void DrawImportTab() {
         var cra      = ImGui.GetContentRegionAvail();
         var textSize = cra with { Y = cra.Y / 2 - 20 };
@@ -150,6 +221,8 @@ public class MainWindow : Window, IDisposable {
                 PluginLog.Error( $"Original mdl file does not exist: {_modelPaths}" );
                 //return;
             }
+
+
             if( _exportStatus != ExportStatus.ExportingModel ) {
                 Task.Run( async () => {
                     try {
