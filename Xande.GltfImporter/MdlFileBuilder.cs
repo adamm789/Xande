@@ -32,8 +32,6 @@ public class MdlFileBuilder {
 
     private Regex _meshSubmeshRegex = new Regex( @"([0-9]+\.[0-9]+)" );
 
-    // files exported via Xande don't have the node names set to work with this parsing
-    // i think it has the mesh names...
     public MdlFileBuilder( ModelRoot root, Model? model, ILogger? logger = null ) {
         _root = root;
         _origModel = model;
@@ -50,14 +48,17 @@ public class MdlFileBuilder {
             _logger?.Error( $"Could not process model." );
             throw new ArgumentException("No valid meshes were found in the model.");
         }
+        var allBones = new List<string>();
+        var bonesToNodes = new Dictionary<string, Node>();
 
-                if( _root.LogicalSkins.Count == 0 ) {
+        if( _root.LogicalSkins.Count == 0 ) {
             if( _origModel?.File?.ModelHeader.BoneCount > 0 ) {
                 throw new ArgumentException( $"The input model had no skeleton/armature while the original model does. This will likely crash the game." );
             }
         }
         else {
             _skeleton = _root.LogicalSkins[0];
+
             if( _skeleton != null ) {
                 for( var id = 0; id < _skeleton.JointsCount; id++ ) {
                     var (joint, InverseBindMatrix) = _skeleton.GetJoint( id );

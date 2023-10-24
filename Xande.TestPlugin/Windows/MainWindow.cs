@@ -61,7 +61,7 @@ public class MainWindow : Window, IDisposable {
 
         SizeConstraints = new WindowSizeConstraints {
             MinimumSize = new Vector2( 375, 350 ),
-            MaximumSize = new Vector2( 1000, 500 ),
+            MaximumSize = new Vector2( 1000, 640 ),
         };
 
         var logger = new DalamudLogger();
@@ -139,7 +139,6 @@ public class MainWindow : Window, IDisposable {
     }
 
 
-    }
     ModelViewer _viewer = new();
     MdlFileBuilder? _builder = null;
 
@@ -261,6 +260,7 @@ public class MainWindow : Window, IDisposable {
         ImGui.InputTextMultiline( ".sklb file", ref _skeletonPaths, 1024 * 4, textSize );
 
         if( ImGui.Button( "Export .gltf" ) ) {
+            //if( !string.IsNullOrWhiteSpace( _skeletonPaths ) ) {
             if( !string.IsNullOrWhiteSpace( _skeletonPaths ) ) {
                 Task.Run( async () => {
                     /*
@@ -270,6 +270,8 @@ public class MainWindow : Window, IDisposable {
                         _skeletonPaths += $"\n {skel}";
                     }
                     */
+                    //_inputMdl = "chara/equipment/e6137/model/c0101e6137_top.mdl";
+                    //_skeletonPaths = "chara/human/c0701/skeleton/base/b0001/skl_c0701b0001.sklb \n chara/human/c0101/skeleton/top/t6086/skl_c0101t6086.sklb";
                     var tempDir = await DoTheThingWithTheModels( _inputMdl.Trim().Split( '\n' ), _skeletonPaths.Trim().Split( '\n' ) );
                     Process.Start( "explorer.exe", tempDir );
                 } );
