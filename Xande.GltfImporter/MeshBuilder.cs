@@ -12,8 +12,8 @@ using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
 namespace Xande.GltfImporter {
-    internal class MeshBuilder {
-        public List<SubmeshBuilder> Submeshes = new();
+    public class MeshBuilder {
+        public List<SubmeshBuilder> Submeshes { get; } = new();
         public Dictionary<int, List<byte>> VertexData = new();
         public SortedSet<string> Attributes = new();
         public MdlStructs.BoneTableStruct BoneTableStruct;
@@ -123,10 +123,10 @@ namespace Xande.GltfImporter {
             return ret;
         }
 
-        public Dictionary<int, List<byte>> GetVertexData() {
+        public Dictionary<int, List<byte>> GetVertexData(MdlStructs.VertexDeclarationStruct vertexDeclaration) {
             var vertexDict = new Dictionary<int, List<byte>>();
             foreach( var submesh in Submeshes ) {
-                var submeshVertexData = submesh.GetVertexData();
+                var submeshVertexData = submesh.GetVertexData( vertexDeclaration );
 
                 foreach( var stream in submeshVertexData.Keys ) {
                     if( !vertexDict.ContainsKey( stream ) ) {
@@ -138,12 +138,12 @@ namespace Xande.GltfImporter {
             return vertexDict;
         }
 
-        public async Task<Dictionary<int, List<byte>>> GetVertexDataAsync() {
+        public async Task<Dictionary<int, List<byte>>> GetVertexDataAsync( MdlStructs.VertexDeclarationStruct vertexDeclaration ) {
             var vertexDict = new Dictionary<int, List<byte >> ();
             var tasks = new Task<Dictionary<int, List<byte>>>[ Submeshes.Count ];
             for (var i = 0; i < Submeshes.Count; i++) {
                 var j = i;
-                tasks[j] = Task.Run( () => Task.FromResult( Submeshes[j].GetVertexData() ) );
+                tasks[j] = Task.Run( () => Task.FromResult( Submeshes[j].GetVertexData( vertexDeclaration ) ) );
             }
 
             Task.WaitAll( tasks );
