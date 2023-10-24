@@ -18,7 +18,7 @@ using Mesh = SharpGLTF.Schema2.Mesh;
 
 
 namespace Xande.GltfImporter {
-    internal class SubmeshBuilder {
+    public class SubmeshBuilder {
         public uint IndexCount => ( uint )Indices.LongCount();
         public List<uint> Indices = new();
         public int BoneCount { get; } = 0;
@@ -48,7 +48,7 @@ namespace Xande.GltfImporter {
         /// </summary>
         /// <param name="mesh"></param>
         /// <param name="skeleton"></param>
-        public SubmeshBuilder( Mesh mesh, List<string> skeleton, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct, ILogger? logger = null ) {
+        public SubmeshBuilder( Mesh mesh, List<string> skeleton, ILogger? logger = null ) {
             _logger = logger;
             _mesh = mesh;
             if( _mesh.Primitives.Count == 0 ) {
@@ -60,7 +60,7 @@ namespace Xande.GltfImporter {
 
             var primitive = _mesh.Primitives[0];
             //foreach( var primitive in _mesh.Primitives ) {
-            VertexDataBuilder = new( primitive, vertexDeclarationStruct, _logger );
+            VertexDataBuilder = new( primitive, _logger );
             Indices.AddRange( primitive.GetIndices() );
 
             var blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array();
@@ -129,7 +129,7 @@ namespace Xande.GltfImporter {
                                 if( shapeName == null ) { continue; }
 
                                 if( shapeName.StartsWith( "shp_" ) ) {
-                                    _shapeBuilders[shapeName] = new ShapeBuilder( shapeName, primitive, i, vertexDeclarationStruct, _logger );
+                                    _shapeBuilders[shapeName] = new ShapeBuilder( shapeName, primitive, i, _logger );
                                     VertexDataBuilder.AddShape( shapeName, primitive.GetMorphTargetAccessors( i ) );
                                 }
                                 else if( shapeName.StartsWith( "atr_" ) && !Attributes.Contains( shapeName ) ) {
@@ -250,6 +250,10 @@ namespace Xande.GltfImporter {
                 return true;
             }
             return false;
+        }
+
+        public bool RemoveAttribute( string name) {
+            return Attributes.Remove( name );
         }
 
         // TODO: Do we actually need to calculate these values?
@@ -429,27 +433,27 @@ namespace Xande.GltfImporter {
             }
         }
 
-        public Dictionary<int, List<byte>> GetVertexData() {
+        public Dictionary<int, List<byte>> GetVertexData( MdlStructs.VertexDeclarationStruct vertexDeclaration ) {
             CalculateBitangents();
             //VertexDataBuilder.Bitangents = _bitangents;
             VertexDataBuilder.SetBitangents( _bitangents );
-            return VertexDataBuilder.GetVertexData();
+            return VertexDataBuilder.GetVertexData( vertexDeclaration );
         }
 
-        public IDictionary<string, Dictionary<int, List<byte>>> GetShapeVertexData( List<string>? strings = null ) {
+        public IDictionary<string, Dictionary<int, List<byte>>> GetShapeVertexData( MdlStructs.VertexDeclarationStruct vertexDeclaration, List<string>? strings = null ) {
             var ret = new Dictionary<string, Dictionary<int, List<byte>>>();
 
             foreach( var shapeName in _shapeBuilders.Keys ) {
                 if( strings == null || strings.Contains( shapeName ) ) {
-                    ret.Add( shapeName, VertexDataBuilder.GetShapeVertexData( _shapeBuilders[shapeName].DifferentVertices, shapeName ) );
+                    ret.Add( shapeName, VertexDataBuilder.GetShapeVertexData( _shapeBuilders[shapeName].DifferentVertices, vertexDeclaration, shapeName ) );
                 }
             }
             return ret;
         }
 
-        public Dictionary<int, List<byte>> GetShapeVertexData( string shapeName ) {
+        public Dictionary<int, List<byte>> GetShapeVertexData( string shapeName , MdlStructs.VertexDeclarationStruct vertexDeclaration ) {
             if( _shapeBuilders.ContainsKey( shapeName ) ) {
-                return VertexDataBuilder.GetShapeVertexData( _shapeBuilders[shapeName].DifferentVertices );
+                return VertexDataBuilder.GetShapeVertexData( _shapeBuilders[shapeName].DifferentVertices, vertexDeclaration );
             }
             return new Dictionary<int, List<byte>>();
 

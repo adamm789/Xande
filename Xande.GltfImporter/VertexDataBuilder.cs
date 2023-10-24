@@ -31,11 +31,8 @@ namespace Xande.GltfImporter {
 
         private ILogger? _logger;
 
-        private MdlStructs.VertexDeclarationStruct _vertexDeclaration;
-
-        public VertexDataBuilder( MeshPrimitive primitive, MdlStructs.VertexDeclarationStruct vertexDeclaration, ILogger? logger = null ) {
+        public VertexDataBuilder( MeshPrimitive primitive, ILogger? logger = null ) {
             _logger = logger;
-            _vertexDeclaration = vertexDeclaration;
             _positions = primitive.GetVertexAccessor( "POSITION" )?.AsVector3Array().ToList();
             _blendWeights = primitive.GetVertexAccessor( "WEIGHTS_0" )?.AsVector4Array().ToList();
             _blendIndices = primitive.GetVertexAccessor( "JOINTS_0" )?.AsVector4Array().ToList();
@@ -60,10 +57,10 @@ namespace Xande.GltfImporter {
             ShapesAccessor.Add( shapeName, accessor );
         }
 
-        public Dictionary<int, List<byte>> GetVertexData() {
+        public Dictionary<int, List<byte>> GetVertexData( MdlStructs.VertexDeclarationStruct vertexDeclaration ) {
             var streams = new Dictionary<int, List<byte>>();
             for( var vertexId = 0; vertexId < _positions?.Count; vertexId++ ) {
-                foreach( var ve in _vertexDeclaration.VertexElements ) {
+                foreach( var ve in vertexDeclaration.VertexElements ) {
                     if( ve.Stream == 255 ) break;
                     if( !streams.ContainsKey( ve.Stream ) ) {
                         streams.Add( ve.Stream, new List<byte>() );
@@ -76,14 +73,14 @@ namespace Xande.GltfImporter {
             return streams;
         }
 
-        public Dictionary<int, List<byte>> GetShapeVertexData( List<int> diffVertices, string? shapeName = null ) {
+        public Dictionary<int, List<byte>> GetShapeVertexData( List<int> diffVertices, MdlStructs.VertexDeclarationStruct vertexDeclaration, string? shapeName = null ) {
             var streams = new Dictionary<int, List<byte>>();
             if( ShapesAccessor == null ) {
                 _logger?.Error( $"Shape accessor was null" );
             }
 
             foreach( var vertexId in diffVertices ) {
-                foreach( var ve in _vertexDeclaration.VertexElements ) {
+                foreach( var ve in vertexDeclaration.VertexElements ) {
                     if( ve.Stream == 255 ) { break; }
                     if( !streams.ContainsKey( ve.Stream ) ) {
                         streams.Add( ve.Stream, new List<byte>() );

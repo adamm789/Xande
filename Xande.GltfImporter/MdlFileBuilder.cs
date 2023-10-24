@@ -6,7 +6,6 @@ using SharpGLTF.Schema2;
 using System.Collections;
 using System.Collections.Immutable;
 using System.Numerics;
-using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Mesh = SharpGLTF.Schema2.Mesh;
 
@@ -15,6 +14,12 @@ namespace Xande.GltfImporter;
 // https://github.com/xivdev/Penumbra/blob/master/Penumbra.GameData/Files/MdlFile.Write.cs
 // https://github.com/NotAdam/Lumina/blob/master/src/Lumina/Data/Files/MdlFile.cs
 public class MdlFileBuilder {
+    public bool HasSkeleton => _skeleton != null;
+    public SortedDictionary<int, SortedDictionary<int, List<string>>> GetAttributes() => _attributes;
+
+    private SortedDictionary<int, SortedDictionary<int, List<string>>> _attributes = new();
+    private Skin? _skeleton;
+
     private ModelRoot _root;
     private Model? _origModel;
     private ILogger? _logger;
@@ -22,9 +27,10 @@ public class MdlFileBuilder {
 
     private SortedDictionary<int, SortedDictionary<int, Mesh>> _meshes = new();
     private StringTableBuilder _stringTableBuilder;
-    private List<MeshBuilder> _meshBuilders = new();
+    public List<MeshBuilder> _meshBuilders = new();
+    private SortedDictionary<string, Node> _eidNodes = new();
 
-    private SortedDictionary<int, SortedDictionary<int, List<string>>> _addedAttributes = new();
+    private Regex _meshSubmeshRegex = new Regex( @"([0-9]+\.[0-9]+)" );
 
     // files exported via Xande don't have the node names set to work with this parsing
     // i think it has the mesh names...
@@ -43,6 +49,80 @@ public class MdlFileBuilder {
         if (_meshes.Count == 0) {
             _logger?.Error( $"Could not process model." );
             throw new ArgumentException("No valid meshes were found in the model.");
+        }
+
+                if( _root.LogicalSkins.Count == 0 ) {
+            if( _origModel?.File?.ModelHeader.BoneCount > 0 ) {
+                throw new ArgumentException( $"The input model had no skeleton/armature while the original model does. This will likely crash the game." );
+            }
+        }
+        else {
+            _skeleton = _root.LogicalSkins[0];
+            if( _skeleton != null ) {
+                for( var id = 0; id < _skeleton.JointsCount; id++ ) {
+                    var (joint, InverseBindMatrix) = _skeleton.GetJoint( id );
+
+                    var boneString = joint.Name;
+                    if( !String.IsNullOrEmpty( boneString ) ) {
+                        allBones.Add( boneString );
+                        bonesToNodes.Add( boneString, joint );
+
+                        if( boneString.StartsWith( "EID_" ) ) {
+                            _eidNodes.Add( boneString, joint );
+                        }
+                    }
+                }
+            }
+            else {
+                _logger?.Error( $"Skeleton was somehow null" );
+                throw new ArgumentException( $"The input model had no skeleton/armature while the original model does. This will likely crash the game." );
+            }
+        }
+
+        foreach( var meshIdx in _meshes.Keys ) {
+            var submeshes = new List<SubmeshBuilder>();
+            _attributes.Add( meshIdx, new SortedDictionary<int, List<string>>() );
+            foreach( var submeshIdx in _meshes[meshIdx].Keys ) {
+                _attributes[meshIdx].Add( submeshIdx, new List<string>() );
+                var submesh = new SubmeshBuilder( _meshes[meshIdx][submeshIdx], allBones, _logger );
+                foreach( var attr in submesh.Attributes ) {
+                    AddAttribute( attr, meshIdx, submeshIdx );
+                }
+                submeshes.Add( submesh );
+            }
+            var meshBuilder = new MeshBuilder( submeshes, _logger );
+            _meshBuilders.Add( meshBuilder );
+            _stringTableBuilder.AddBones( meshBuilder.Bones );
+            _stringTableBuilder.AddMaterial( meshBuilder.Material );
+            _stringTableBuilder.AddShapes( meshBuilder.Shapes );
+            _stringTableBuilder.AddAttributes( meshBuilder.Attributes );
+        }
+        var inputMaterials = _stringTableBuilder.Materials.Where( m => m.StartsWith( '/' ) );
+
+        if( _origModel != null ) {
+            if( inputMaterials.Any() ^ _origModel.Materials.Where( m => m.MaterialPath.StartsWith( '/' ) ).Any() ) {
+                if( inputMaterials.Any() ) {
+                    _logger?.Warning( $"Input model has a material starting with / while the original model does not." );
+                }
+                else {
+                    _logger?.Warning( $"Input model materials do not start with / while the original model does." );
+                }
+                _logger?.Warning( $"This will likely crash the game if left unchanged." );
+            }
+        }
+        else if( inputMaterials.Any() ^ _stringTableBuilder.Bones.Count > 0 ) {
+            // Not strictly true
+            // But equipment seems to expect a material starting with / and equipment needs a skeleton
+            _logger?.Warning( $"Input model has materials starting with / while a skeleton is active." );
+            _logger?.Warning( $"This may crash the game." );
+        }
+
+        if( _stringTableBuilder.Bones.Where( x => x.Contains( "n_hara" ) ).Count() > 1 ) {
+            // TODO: ?
+        }
+
+        if( _skeleton != null ) {
+            _stringTableBuilder.HierarchyBones = GetJoints( _skeleton.GetJoint( 0 ).Joint.VisualChildren.ToList(), _stringTableBuilder.Bones.ToList() );
         }
     }
 
@@ -93,14 +173,13 @@ public class MdlFileBuilder {
     }
 
     public bool AddAttribute( string name, int mesh, int submesh ) {
-        if( _meshes.ContainsKey( mesh ) && _meshes[mesh].ContainsKey( submesh ) ) {
-            if( !_addedAttributes.ContainsKey( mesh ) ) { _addedAttributes[mesh] = new(); }
-            if( !_addedAttributes[mesh].ContainsKey( submesh ) ) { _addedAttributes[mesh][submesh] = new(); }
-            if( !_addedAttributes[mesh][submesh].Contains( name ) ) {
-                _addedAttributes[mesh][submesh].Add( name );
+        if( _attributes.ContainsKey( mesh ) && _attributes[mesh].ContainsKey( submesh ) ) {
+            if( !_attributes[mesh][submesh].Contains( name ) ) {
+                _attributes[mesh][submesh].Add( name );
                 return true;
             }
         }
+        _logger?.Debug( $"Model does not contain mesh: {mesh}, {submesh}" );
         return false;
     }
 
@@ -172,96 +251,6 @@ public class MdlFileBuilder {
     public (MdlFile? file, List<byte> vertexData, List<byte> indexData) Build() {
         var start = DateTime.Now;
         var vertexDeclarations = GetVertexDeclarationStructs( _meshes.Keys.Count, _origModel?.File?.VertexDeclarations[0] );
-
-        var allBones = new List<string>();
-        var bonesToNodes = new Dictionary<string, Node>();
-        var eidNodes = new SortedDictionary<string, Node>();
-
-        Skin? skeleton = null;
-        if( _root.LogicalSkins.Count == 0 ) {
-            if( _origModel?.File?.ModelHeader.BoneCount > 0 ) {
-                _logger?.Error( $"The input model had no skeleton/armature while the original model does. This will likely crash the game." );
-                return (null, new List<byte>(), new List<byte>());
-            }
-        }
-        else {
-            skeleton = _root.LogicalSkins[0];
-            if( skeleton != null ) {
-                for( var id = 0; id < skeleton.JointsCount; id++ ) {
-                    var (joint, InverseBindMatrix) = skeleton.GetJoint( id );
-
-                    var boneString = joint.Name;
-                    if( !String.IsNullOrEmpty( boneString ) ) {
-                        allBones.Add( boneString );
-                        bonesToNodes.Add( boneString, joint );
-
-                        if( boneString.StartsWith( "EID_" ) ) {
-                            eidNodes.Add( boneString, joint );
-                        }
-                    }
-                }
-            }
-            else {
-                _logger?.Error( $"Skeleton was somehow null" );
-                _logger?.Error( $"The input model had no skeleton/armature while the original model does. This will likely crash the game." );
-                return (null, new List<byte>(), new List<byte>());
-            }
-        }
-
-        foreach( var meshIdx in _meshes.Keys ) {
-            var submeshes = new List<SubmeshBuilder>();
-            foreach( var submeshIdx in _meshes[meshIdx].Keys ) {
-                var vd = vertexDeclarations.Length > meshIdx ? vertexDeclarations[meshIdx] : vertexDeclarations[0];
-
-                var submesh = new SubmeshBuilder( _meshes[meshIdx][submeshIdx], allBones, vd, _logger );
-                if( _addedAttributes.ContainsKey( meshIdx ) && _addedAttributes[meshIdx].ContainsKey( submeshIdx ) ) {
-                    foreach( var attr in _addedAttributes[meshIdx][submeshIdx] ) {
-                        if( submesh.AddAttribute( attr ) ) {
-
-                        }
-                        else {
-                            _logger?.Warning( $"Could not add attribute: \"{attr}\" at mesh {meshIdx}, submesh {submeshIdx}" );
-                        }
-                    }
-                }
-
-                submeshes.Add( submesh );
-            }
-            var meshBuilder = new MeshBuilder( submeshes, _logger );
-            _meshBuilders.Add( meshBuilder );
-            _stringTableBuilder.AddBones( meshBuilder.Bones );
-            _stringTableBuilder.AddMaterial( meshBuilder.Material );
-            _stringTableBuilder.AddShapes( meshBuilder.Shapes );
-            _stringTableBuilder.AddAttributes( meshBuilder.Attributes );
-        }
-        var inputMaterials = _stringTableBuilder.Materials.Where( m => m.StartsWith( '/' ) );
-
-        if( _origModel != null ) {
-            if( inputMaterials.Any() ^ _origModel.Materials.Where( m => m.MaterialPath.StartsWith( '/' ) ).Any() ) {
-                if( inputMaterials.Any() ) {
-                    _logger?.Warning( $"Input model has a material starting with / while the original model does not." );
-                }
-                else {
-                    _logger?.Warning( $"Input model materials do not start with / while the original model does." );
-                }
-                _logger?.Warning( $"This will likely crash the game if left unchanged." );
-            }
-        }
-        else if( inputMaterials.Any() ^ _stringTableBuilder.Bones.Count > 0 ) {
-            // Not strictly true
-            // But equipment seems to expect a material starting with / and equipment needs a skeleton
-            _logger?.Warning( $"Input model has materials starting with / while a skeleton is active." );
-            _logger?.Warning( $"This may crash the game." );
-        }
-
-        if( _stringTableBuilder.Bones.Where( x => x.Contains( "n_hara" ) ).Count() > 1 ) {
-            // TODO: ?
-        }
-
-        if( skeleton != null ) {
-            _stringTableBuilder.HierarchyBones = GetJoints( skeleton.GetJoint( 0 ).Joint.VisualChildren.ToList(), _stringTableBuilder.Bones.ToList() );
-        }
-
         var strings = _stringTableBuilder.GetStrings();
 
         var vertexData = new List<byte>();
@@ -314,7 +303,14 @@ public class MdlFileBuilder {
         }
         */
 
-        if( eidNodes.Count == 0 && _origModel?.File?.ElementIds != null ) {
+        /*
+        if( _eidNodes.Count == 0 && _origModel?.File?.ElementIds != null ) {
+            foreach( var eid in _origModel.File.ElementIds ) {
+                elementIds.Add( eid );
+            }
+        }
+        */
+        if( _origModel?.File?.ElementIds != null ) {
             foreach( var eid in _origModel.File.ElementIds ) {
                 elementIds.Add( eid );
             }
@@ -332,7 +328,9 @@ public class MdlFileBuilder {
             var mesh = _meshBuilders[i];
             var meshIndexData = new List<byte>();
             var vertexCount = mesh.GetVertexCount( true, strings );
-            var vertexBufferStride = GetVertexBufferStride( vertexDeclarations[i] ).ConvertAll( x => ( byte )x ).ToArray();
+            var vd = vertexDeclarations.Length > i ? vertexDeclarations[i] : vertexDeclarations[0];
+
+            var vertexBufferStride = GetVertexBufferStride( vd ).ConvertAll( x => ( byte )x ).ToArray();
             boneTableStructs.Add( mesh.GetBoneTableStruct( _stringTableBuilder.Bones.ToList(), _stringTableBuilder.HierarchyBones ) );
 
             var vertexBufferOffsets = new List<int>() { vertexBufferOffset, 0, 0 };
@@ -360,7 +358,7 @@ public class MdlFileBuilder {
 
             var mvd = new MeshVertexData( _logger );
             //var meshVertexDict = mesh.GetVertexData();
-            mvd.AddVertexData( mesh.GetVertexData() );
+            mvd.AddVertexData( mesh.GetVertexData( vd ) );
             totalIndexCount = 0;
 
             var shapeVertices = 0;
@@ -396,7 +394,7 @@ public class MdlFileBuilder {
                 max.Y = max.Y > submesh.MaxBoundingBox.Y ? max.Y : submesh.MaxBoundingBox.Y;
                 max.Z = max.Z > submesh.MaxBoundingBox.Z ? max.Z : submesh.MaxBoundingBox.Z;
 
-                var submeshShapeData = submesh.GetShapeVertexData( _stringTableBuilder.Shapes.ToList() );
+                var submeshShapeData = submesh.GetShapeVertexData( vd, _stringTableBuilder.Shapes.ToList() );
                 foreach( var (shapeName, values) in submeshShapeData ) {
                     var newShapeValues = new List<MdlStructs.ShapeValueStruct>();
                     mvd.AddShapeVertexData( values );

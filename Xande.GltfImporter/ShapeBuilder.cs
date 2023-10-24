@@ -17,8 +17,9 @@ namespace Xande.GltfImporter {
         private ILogger? _logger;
         public int VertexCount => DifferentVertices.Count;
 
-        public ShapeBuilder( string name, MeshPrimitive primitive, int morphTargetIndex, MdlStructs.VertexDeclarationStruct vertexDeclarationStruct, ILogger? logger = null ) {
+        public ShapeBuilder( string name, MeshPrimitive primitive, int morphTargetIndex, ILogger? logger = null ) {
             ShapeName = name;
+            _logger = logger;
             //_vertexDataBuilder = new( primitive, vertexDeclarationStruct );
 
             var shape = primitive.GetMorphTargetAccessors( morphTargetIndex );
