@@ -6,6 +6,7 @@ using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
 using Dalamud.Logging;
 using ImGuiNET;
+using Lumina;
 using Lumina.Data;
 using Xande.Files;
 using Xande.GltfImporter;
@@ -20,6 +21,7 @@ public class MainWindow : Window, IDisposable {
     private readonly LuminaManager     _luminaManager;
     private readonly ModelConverter    _modelConverter;
     private readonly SklbResolver      _sklbResolver;
+    private readonly MdlFileEditorView _mdlFileEditorView;
 
     private const string SklbFilter = "FFXIV Skeleton{.sklb}";
     private const string PbdFilter  = "FFXIV Bone Deformer{.pbd}";
@@ -37,7 +39,7 @@ public class MainWindow : Window, IDisposable {
 
     private ExportStatus _exportStatus = ExportStatus.Idle;
 
-    private string          _modelPaths      = "chara/monster/m0405/obj/body/b0002/model/m0405b0002.mdl";
+    private string          _modelPaths      = string.Empty;
     private string          _skeletonPaths   = string.Empty;
     private string          _gltfPath        = string.Empty;
     private string          _outputMdlPath   = string.Empty;
@@ -68,6 +70,7 @@ public class MainWindow : Window, IDisposable {
         _luminaManager = new LuminaManager( origPath => Plugin.Configuration.ResolverOverrides.TryGetValue( origPath, out var newPath ) ? newPath : null, logger );
         _modelConverter = new ModelConverter( _luminaManager, new PenumbraIPCPathResolver( Service.PluginInterface ), logger );
         _sklbResolver = new SklbResolver( Service.PluginInterface );
+        _mdlFileEditorView = new( _luminaManager, logger );
         IsOpen = Plugin.Configuration.AutoOpen;
     }
 
@@ -107,6 +110,24 @@ public class MainWindow : Window, IDisposable {
             ImGui.EndTabItem();
         }
 
+        if (ImGui.BeginTabItem("Edit .mdl")) {
+            DrawStatus();
+            _mdlFileEditorView.Draw();
+            if( ImGui.Button( $"Save..." ) ) {
+                var (file, vertexData, indexData) = _mdlFileEditorView.Confirm();
+                SaveFileDialog( "Save .mdl", "FFXIV Mdl{.mdl", "model.mdl", ".mdl", path => {
+                    using var stream = new MemoryStream();
+                    using var modelWriter = new MdlFileWriter( file, stream, new DalamudLogger() );
+                    modelWriter.WriteAll( vertexData, indexData );
+                    var bytes = stream.ToArray();
+                    PluginLog.Debug( $"Writing {bytes.Length} bytes to {path}" );
+                    File.WriteAllBytes( path, bytes );
+                    Process.Start( "explorer.exe", Path.GetDirectoryName( path ) );
+                } );
+            }
+            ImGui.EndTabItem();
+        }
+
         ImGui.EndTabBar();
     }
 
@@ -139,11 +160,13 @@ public class MainWindow : Window, IDisposable {
     }
 
 
-    ModelViewer _viewer = new();
+    ModelViewer? _viewer;
     MdlFileBuilder? _builder = null;
 
     bool hasLoaded = false;
 
+    // meant to load gltf -> edit materials/attributes -> save
+    // but does not work currently
     private void DrawImportTab2() {
         var cra = ImGui.GetContentRegionAvail();
         var textSize = cra with { Y = cra.Y / 2 - 20 };
@@ -161,8 +184,8 @@ public class MainWindow : Window, IDisposable {
             if( File.Exists( _gltfPath ) ) {
                 try {
                     _exportStatus = ExportStatus.ExportingModel;
-                    _builder = _modelConverter.GetModel( _gltfPath, _modelPaths );
-
+                    _builder = _modelConverter.LoadGltf( _gltfPath, _modelPaths );
+                    _viewer = new( _builder );
                     hasLoaded = true;
                 }
                 catch( Exception ex ) {
@@ -175,8 +198,8 @@ public class MainWindow : Window, IDisposable {
             }
         }
 
-        if( _builder != null ) {
-            _viewer.Draw( _builder );
+        if( _viewer != null ) {
+            _viewer.Draw( );
         }
 
         if( ImGui.Button( $"Convert" ) && _builder != null ) {
@@ -184,9 +207,10 @@ public class MainWindow : Window, IDisposable {
                 try {
                     _exportStatus = ExportStatus.ExportingModel;
 
-                    var data = _modelConverter.GetData( _builder );
+                    var data = _modelConverter.GetBytes( _builder );
                     if( data != null ) {
                         SaveFileDialog( "Save .mdl", "FFXIV Mdl{.mdl}", "model.mdl", ".mdl", path2 => {
+                            _outputMdlPath = path2;
                             PluginLog.Debug( $"Writing file to: {path2}" );
                             File.WriteAllBytes( path2, data );
                             Process.Start( "explorer.exe", Path.GetDirectoryName( path2 ) );
@@ -233,6 +257,7 @@ public class MainWindow : Window, IDisposable {
                         }
                         else {
                             SaveFileDialog( "Save .mdl", "FFXIV Mdl{.mdl}", "model.mdl", ".mdl", path2 => {
+                                _outputMdlPath = path2;
                                 PluginLog.Debug( $"Writing file to: {path2}" );
                                 File.WriteAllBytes( path2, data );
                                 Process.Start( "explorer.exe", Path.GetDirectoryName( path2 ) );
@@ -270,8 +295,6 @@ public class MainWindow : Window, IDisposable {
                         _skeletonPaths += $"\n {skel}";
                     }
                     */
-                    //_inputMdl = "chara/equipment/e6137/model/c0101e6137_top.mdl";
-                    //_skeletonPaths = "chara/human/c0701/skeleton/base/b0001/skl_c0701b0001.sklb \n chara/human/c0101/skeleton/top/t6086/skl_c0101t6086.sklb";
                     var tempDir = await DoTheThingWithTheModels( _inputMdl.Trim().Split( '\n' ), _skeletonPaths.Trim().Split( '\n' ) );
                     Process.Start( "explorer.exe", tempDir );
                 } );
@@ -367,18 +390,18 @@ public class MainWindow : Window, IDisposable {
         return DoTheThingWithTheModels( models, skeletons, deform: deform, type: type );
     }
 
-    private void OpenFileDialog( string title, string filters, Action< string > callback ) {
+    private void OpenFileDialog( string title, string filters, Action< string > callback, string startPath = "") {
         _fileDialogManager.OpenFileDialog( title, filters, ( result, path ) => {
             if( !result ) return;
             Service.Framework.RunOnTick( () => { callback( path ); } );
-        } );
+        });
     }
 
-    private void SaveFileDialog( string title, string filters, string defaultFileName, string defaultExtension, Action< string > callback ) {
+    private void SaveFileDialog( string title, string filters, string defaultFileName, string defaultExtension, Action< string > callback, string startPath = "" ) {
         _fileDialogManager.SaveFileDialog( title, filters, defaultFileName, defaultExtension, ( result, path ) => {
             if( !result ) return;
             Service.Framework.RunOnTick( () => { callback( path ); } );
-        } );
+        }, startPath );
     }
 
     private void DrawModel() {
