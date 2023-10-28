@@ -289,7 +289,7 @@ public class ModelConverter {
                     var mtrlPath = xivMesh.Material.ResolvedPath ?? xivMesh.Material.MaterialPath;
                     var resolvedMtrlPath = ResolvePath( mtrlPath, exportType );
                     var xivMaterial = _lumina.GetMaterial( resolvedMtrlPath, xivMesh.Material.MaterialPath );
-                    ComposeTextures( glTFMaterial, xivMaterial, outputDir, exportType );
+                    ComposeTextures( glTFMaterial, xivMaterial, outputDir );
                 }
                 catch( Exception ex ) {
                     PluginLog.Debug( ex, $"Could not create textures from: {glTFMaterial.Name}" );
@@ -308,7 +308,7 @@ public class ModelConverter {
                 }
                 if( xivMesh.Vertices.Length == 0 ) { continue; }
                 // Handle submeshes and the main mesh
-                var meshBuilder = new MeshBuilder(
+                var meshBuilder = new Export.MeshBuilder(
                     xivMesh,
                     useSkinning,
                     jointIDMapping,
@@ -361,42 +361,49 @@ public class ModelConverter {
         return path;
     }
 
-    public byte[] ImportModel( string gltfPath, string origModel ) {
+    public MdlFileBuilder? LoadGltf( string gltfPath, string origModel ) {
         PluginLog.Debug( $"Importing model" );
         var root = ModelRoot.Load( gltfPath );
 
         Model? orig = null;
-        if( String.IsNullOrWhiteSpace( origModel ) ) {
-            PluginLog.Warning( $"No original model was supplied." );
-        }
-        else {
-            try {
-                orig = _lumina.GetModel( origModel );
-            }
-            catch( FileNotFoundException ) {
-                PluginLog.Error( $"Could not find original model: \"{origModel}\"" );
-                //return Array.Empty<byte>();
-            }
-        }
         try {
-            var modelFileBuilder = new MdlFileBuilder( root, orig, _logger );
+            orig = _lumina.GetModel( origModel );
+        }
+        catch( FileNotFoundException ) {
+            PluginLog.Error( $"Could not find original model: \"{origModel}\"" );
+            //return Array.Empty<byte>();
+        }
 
-            var (file, vertexData, indexData) = modelFileBuilder.Build();
-            if( file == null ) {
-                PluginLog.Debug( "Could not build MdlFile" );
-                return Array.Empty<byte>();
-            }
-
-            using var stream = new MemoryStream();
-            using var modelWriter = new MdlFileWriter( file, stream );
-
-            modelWriter.WriteAll( vertexData, indexData );
-            return stream.ToArray();
+        try {
+            return new MdlFileBuilder( root, orig, _logger );
         }
         catch( Exception ex ) {
-            PluginLog.Error( ex, $"Could not process model from {gltfPath}" );
+            _logger?.Debug( ex.Message );
+        }
+        return null;
+    }
+
+    public byte[] GetBytes( MdlFileBuilder builder ) {
+        var (file, vertexData, indexData) = builder.Build();
+
+        if( file == null ) {
+            PluginLog.Debug( "Could not build MdlFile" );
             return Array.Empty<byte>();
         }
+
+        using var stream = new MemoryStream();
+        using var modelWriter = new MdlFileWriter( file, stream, _logger );
+
+        modelWriter.WriteAll( vertexData, indexData );
+        return stream.ToArray();
+    }
+
+    public byte[] ImportModel( string gltfPath, string origModel ) {
+        var builder = LoadGltf( gltfPath, origModel );
+        if( builder != null ) {
+            return GetBytes( builder );
+        }
+        return Array.Empty<byte>();
     }
 
     public async Task<byte[]> ImportModelAsync( string gltfPath, string origModel ) {
