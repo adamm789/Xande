@@ -20,7 +20,21 @@ namespace Xande.Models {
             _w = new BinaryWriter( stream );
         }
 
-        public void WriteAll( IEnumerable<byte> vertexData, IEnumerable<byte> indexData ) {
+        public void WriteAll( IEnumerable<byte>[] vertexData, IEnumerable<byte>[] indexData, bool overwriteOffsets = true ) {
+            WriteFile();
+            WriteVertexData( vertexData, overwriteOffsets );
+            WriteIndexData( indexData, overwriteOffsets );
+        }
+
+        public void WriteAll( IEnumerable<byte> vertexData, IEnumerable<byte> indexData, bool overwriteOffsets = true ) {
+            WriteFile();
+            WriteVertexData( vertexData, overwriteOffsets );
+            WriteIndexData( indexData, overwriteOffsets );
+
+            _logger?.Debug( "Finished writing" );
+        }
+
+        private void WriteFile() {
             WriteFileHeader( _file.FileHeader );
             WriteVertexDeclarations( _file.VertexDeclarations );
 
@@ -74,11 +88,6 @@ namespace Xande.Models {
             foreach( var boneBoundingBox in _file.BoneBoundingBoxes ) {
                 WriteBoundingBoxStructs( boneBoundingBox );
             }
-
-            _w.Write( vertexData.ToArray() );
-            _w.Write( indexData.ToArray() );
-
-            _logger?.Debug( "Finished writing" );
         }
 
         private void WriteFileHeader( MdlStructs.ModelFileHeader modelFileHeader ) {
@@ -114,6 +123,13 @@ namespace Xande.Models {
                     _w.Write( vertexElement.Usage );
                     _w.Write( vertexElement.UsageIndex );
                     _w.Seek( 3, SeekOrigin.Current );
+                }
+                if (declaration.VertexElements.Length < 17) {
+                    _w.Write( ( byte )255 );
+                    _w.Seek(7, SeekOrigin.Current );
+                }
+                for (var i = declaration.VertexElements.Length + 1; i < 17; i++ ) {
+                    _w.Seek(8, SeekOrigin.Current);
                 }
             }
         }
@@ -341,6 +357,52 @@ namespace Xande.Models {
             for( var i = 0; i < 4; i++ ) {
                 _w.Write( bb.Max[i] );
             }
+        }
+
+        private void WriteVertexData( IEnumerable<byte> vertexData, bool overwriteOffset = true ) {
+            WriteVertexData( new IEnumerable<byte>[] { vertexData, Array.Empty<byte>(), Array.Empty<byte>() }, overwriteOffset );
+        }
+
+        private void WriteVertexData( IEnumerable<byte>[] vertexData, bool overwriteOffset = true ) {
+            var vertexOffsets = new uint[3] { 0, 0, 0 };
+            for( var i = 0; i < 3; i++ ) {
+                var data = vertexData[i];
+                if( data.Any() ) {
+                    vertexOffsets[i] = ( uint )_w.BaseStream.Position;
+                    _w.Write( data.ToArray() );
+                }
+            }
+            if( overwriteOffset ) {
+                _logger?.Debug( $"Overwriting vertex offsets: {String.Join( ", ", vertexOffsets )}" );
+                _w.Seek( 16, SeekOrigin.Begin );
+                foreach( var offset in vertexOffsets ) {
+                    _w.Write( offset );
+                }
+            }
+            _w.Seek(0, SeekOrigin.End );
+        }
+
+        private void WriteIndexData( IEnumerable<byte> indexData, bool overwriteOffset = true ) {
+            WriteIndexData( new IEnumerable<byte>[] { indexData, Array.Empty<byte>(), Array.Empty<byte>() }, overwriteOffset );
+        }
+
+        private void WriteIndexData( IEnumerable<byte>[] indexData, bool overwriteOffset = true ) {
+            var indexOffsets = new uint[3] { 0, 0, 0 };
+            for( var i = 0; i < 3; i++ ) {
+                var data = indexData[i];
+                if( data.Any() ) {
+                    indexOffsets[i] = ( uint )_w.BaseStream.Position;
+                    _w.Write( data.ToArray() );
+                }
+            }
+            if( overwriteOffset ) {
+                _logger?.Debug( $"Overwriting index offsets: {String.Join( ", ", indexOffsets )}" );
+                _w.Seek( 28, SeekOrigin.Begin );
+                foreach( var offset in indexOffsets ) {
+                    _w.Write( offset );
+                }
+            }
+            _w.Seek( 0, SeekOrigin.End );
         }
 
         public void Dispose() {
