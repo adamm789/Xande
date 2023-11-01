@@ -17,6 +17,8 @@ using SharpGLTF.Geometry.VertexTypes;
 using Lumina;
 using Xande.GltfImporter;
 
+using MeshBuilder = Xande.Models.Export.MeshBuilder;
+
 // ReSharper disable InconsistentNaming
 
 namespace Xande.Models;
@@ -281,7 +283,7 @@ public class ModelConverter {
             foreach( var xivMesh in xivModel.Meshes.Where( m => m.Types.Contains( Mesh.MeshType.Main ) ) ) {
                 xivMesh.Material.Update( _lumina.GameData );
                 var mtrlPath         = xivMesh.Material.ResolvedPath ?? xivMesh.Material.MaterialPath;
-                var resolvedMtrlPath = ResolvePath( mtrlPath );
+                var resolvedMtrlPath = ResolvePath( mtrlPath, exportType );
                 var xivMaterial      = _lumina.GetMaterial( resolvedMtrlPath, xivMesh.Material.MaterialPath );
                 var glTFMaterial = new MaterialBuilder {
                     Name = xivMesh.Material.MaterialPath
@@ -353,7 +355,41 @@ public class ModelConverter {
         return path;
     }
 
-    public byte[] ImportModel( string gltfPath, string origModel ) {
+    public MdlFileBuilder? GetModel(string gltfPath, string origModel ) {
+        PluginLog.Debug( $"Importing model" );
+        var root = ModelRoot.Load( gltfPath );
+
+        Model? orig = null;
+        try {
+            orig = _lumina.GetModel( origModel );
+            return new MdlFileBuilder( root, orig, _logger );
+        }
+        catch( FileNotFoundException ) {
+            PluginLog.Error( $"Could not find original model: \"{origModel}\"" );
+            //return Array.Empty<byte>();
+        }
+        catch (Exception ex ) {
+            _logger?.Debug( ex.Message );
+        }
+        return null;
+    }
+
+    public byte[] GetData(MdlFileBuilder builder) {
+        var (file, vertexData, indexData) = builder.Build();
+
+        if( file == null ) {
+            PluginLog.Debug( "Could not build MdlFile" );
+            return Array.Empty<byte>();
+        }
+
+        using var stream = new MemoryStream();
+        using var modelWriter = new MdlFileWriter( file, stream );
+
+        modelWriter.WriteAll( vertexData, indexData );
+        return stream.ToArray();
+    }
+
+    public byte[]? ImportModel( string gltfPath, string origModel ) {
         PluginLog.Debug( $"Importing model" );
         var root = ModelRoot.Load( gltfPath );
 
