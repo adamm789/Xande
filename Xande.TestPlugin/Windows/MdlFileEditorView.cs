@@ -86,17 +86,18 @@ namespace Xande.TestPlugin.Windows {
 
             if( _editor != null ) {
                 foreach( var (meshIdx, mat) in editor.Materials ) {
-                    ImGui.InputText( $"Mesh {meshIdx} material", ref _materials[meshIdx], 1024 );
+                    ImGui.Text( $"Mesh {meshIdx} material" );
+                    ImGui.SameLine();
+                    ImGui.InputText( $"##material {meshIdx}", ref _materials[meshIdx], 1024 );
                 }
 
                 var index = 0;
                 foreach( var (meshIdx, submeshes) in editor.Attributes ) {
                     var mesh = editor.Attributes[meshIdx];
                     foreach( var (submeshIdx, attributeList) in mesh ) {
-                        //ImGui.InputText( $"{meshIdx}-{submeshIdx}", ref _attributes[index], 1024 );
-                        ImGui.InputText( $"{meshIdx}-{submeshIdx}", ref _newAttributes[index], 128 );
+                        ImGui.InputText( $"##{meshIdx}-{submeshIdx}", ref _newAttributes[index], 128 );
                         ImGui.SameLine();
-                        if( ImGui.Button( $"Add {meshIdx}-{submeshIdx}" ) ) {
+                        if( ImGui.Button( $"Add to {meshIdx}-{submeshIdx}" ) ) {
                             if( _submeshAttributes[index].Contains( _newAttributes[index] ) ) {
                                 _logger?.Debug( $"Submesh already contains {_newAttributes[index]}" );
                             }
