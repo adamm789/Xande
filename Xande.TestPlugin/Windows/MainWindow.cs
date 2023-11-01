@@ -21,6 +21,7 @@ public class MainWindow : Window, IDisposable {
     private readonly LuminaManager     _luminaManager;
     private readonly ModelConverter    _modelConverter;
     private readonly SklbResolver      _sklbResolver;
+    private readonly MdlFileEditorView _mdlFileEditorView;
 
     private const string SklbFilter = "FFXIV Skeleton{.sklb}";
     private const string PbdFilter  = "FFXIV Bone Deformer{.pbd}";
@@ -68,6 +69,7 @@ public class MainWindow : Window, IDisposable {
         _luminaManager  = new LuminaManager( origPath => Plugin.Configuration.ResolverOverrides.TryGetValue( origPath, out var newPath ) ? newPath : null );
         _modelConverter = new ModelConverter( _luminaManager, new PenumbraIPCPathResolver( Service.PluginInterface ), new DalamudLogger() );
         _sklbResolver   = new SklbResolver( Service.PluginInterface );
+        _mdlFileEditorView = new( _luminaManager, new DalamudLogger() );
         IsOpen          = Plugin.Configuration.AutoOpen;
     }
 
@@ -313,11 +315,11 @@ public class MainWindow : Window, IDisposable {
         } );
     }
 
-    private void SaveFileDialog( string title, string filters, string defaultFileName, string defaultExtension, Action< string > callback ) {
+    private void SaveFileDialog( string title, string filters, string defaultFileName, string defaultExtension, Action< string > callback, string? startPath = "" ) {
         _fileDialogManager.SaveFileDialog( title, filters, defaultFileName, defaultExtension, ( result, path ) => {
             if( !result ) return;
             Service.Framework.RunOnTick( () => { callback( path ); } );
-        } );
+        }, startPath );
     }
 
     private void DrawModel() {
