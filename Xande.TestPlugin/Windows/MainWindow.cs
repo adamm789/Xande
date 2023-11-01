@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Numerics;
 using System.Reflection;
+using System.Windows.Markup;
 using Dalamud.Interface;
 using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
@@ -97,6 +98,27 @@ public class MainWindow : Window, IDisposable {
         if( ImGui.BeginTabItem( "Export .mdl" ) ) {
             DrawStatus();
             DrawExportTab();
+            ImGui.EndTabItem();
+        }
+
+        if (ImGui.BeginTabItem("Edit .mdl")) {
+            DrawStatus();
+            _mdlFileEditorView.Draw();
+            if( ImGui.Button( $"Save..." ) ) {
+                var (file, vertexData, indexData) = _mdlFileEditorView.Confirm();
+                if( file != null ) {
+                    var dir = Path.GetDirectoryName(_mdlFileEditorView.MdlPath ) ?? Directory.GetCurrentDirectory();
+                    SaveFileDialog( "Save .mdl", "FFXIV Mdl{.mdl", "model.mdl", ".mdl", path => {
+                        using var stream = new MemoryStream();
+                        using var modelWriter = new MdlFileWriter( file, stream, new DalamudLogger() );
+                        modelWriter.WriteAll( vertexData, indexData );
+                        var bytes = stream.ToArray();
+                        PluginLog.Debug( $"Writing {bytes.Length} bytes to {path}" );
+                        File.WriteAllBytes( path, bytes );
+                        Process.Start( "explorer.exe", Path.GetDirectoryName( path ) );
+                    }, dir );
+                }
+            }
             ImGui.EndTabItem();
         }
 
