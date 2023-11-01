@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Numerics;
 using System.Reflection;
+using System.Windows.Markup;
 using Dalamud.Interface;
 using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
@@ -98,12 +99,6 @@ public class MainWindow : Window, IDisposable {
             ImGui.EndTabItem();
         }
 
-        if( ImGui.BeginTabItem( "Import .gltf V2" ) ) {
-            DrawStatus();
-            DrawImportTab2();
-            ImGui.EndTabItem();
-        }
-
         if( ImGui.BeginTabItem( "Export .mdl" ) ) {
             DrawStatus();
             DrawExportTab();
@@ -115,15 +110,18 @@ public class MainWindow : Window, IDisposable {
             _mdlFileEditorView.Draw();
             if( ImGui.Button( $"Save..." ) ) {
                 var (file, vertexData, indexData) = _mdlFileEditorView.Confirm();
-                SaveFileDialog( "Save .mdl", "FFXIV Mdl{.mdl", "model.mdl", ".mdl", path => {
-                    using var stream = new MemoryStream();
-                    using var modelWriter = new MdlFileWriter( file, stream, new DalamudLogger() );
-                    modelWriter.WriteAll( vertexData, indexData );
-                    var bytes = stream.ToArray();
-                    PluginLog.Debug( $"Writing {bytes.Length} bytes to {path}" );
-                    File.WriteAllBytes( path, bytes );
-                    Process.Start( "explorer.exe", Path.GetDirectoryName( path ) );
-                } );
+                if( file != null ) {
+                    var dir = Path.GetDirectoryName(_mdlFileEditorView.MdlPath ) ?? Directory.GetCurrentDirectory();
+                    SaveFileDialog( "Save .mdl", "FFXIV Mdl{.mdl", "model.mdl", ".mdl", path => {
+                        using var stream = new MemoryStream();
+                        using var modelWriter = new MdlFileWriter( file, stream, new DalamudLogger() );
+                        modelWriter.WriteAll( vertexData, indexData );
+                        var bytes = stream.ToArray();
+                        PluginLog.Debug( $"Writing {bytes.Length} bytes to {path}" );
+                        File.WriteAllBytes( path, bytes );
+                        Process.Start( "explorer.exe", Path.GetDirectoryName( path ) );
+                    }, dir );
+                }
             }
             ImGui.EndTabItem();
         }
@@ -159,73 +157,6 @@ public class MainWindow : Window, IDisposable {
         } catch { return false; }
     }
 
-
-    ModelViewer? _viewer;
-    MdlFileBuilder? _builder = null;
-
-    bool hasLoaded = false;
-
-    // meant to load gltf -> edit materials/attributes -> save
-    // but does not work currently
-    private void DrawImportTab2() {
-        var cra = ImGui.GetContentRegionAvail();
-        var textSize = cra with { Y = cra.Y / 2 - 20 };
-
-        if( ImGui.Button( "Browse .gltf" ) ) {
-            OpenFileDialog( "Select gltf file", GltfFilter, path => {
-                _gltfPath = path;
-            } );
-            hasLoaded = false;
-        }
-        ImGui.SameLine();
-        ImGui.InputText( "gltf file", ref _gltfPath, 1024 );
-
-        if( ImGui.Button( "Load gltf" ) && !hasLoaded ) {
-            if( File.Exists( _gltfPath ) ) {
-                try {
-                    _exportStatus = ExportStatus.ExportingModel;
-                    _builder = _modelConverter.LoadGltf( _gltfPath, _modelPaths );
-                    _viewer = new( _builder );
-                    hasLoaded = true;
-                }
-                catch( Exception ex ) {
-                    PluginLog.Debug( $"Failed to get model. {ex.Message}" );
-                    hasLoaded = false;
-                }
-                finally {
-                    _exportStatus = ExportStatus.Idle;
-                }
-            }
-        }
-
-        if( _viewer != null ) {
-            _viewer.Draw( );
-        }
-
-        if( ImGui.Button( $"Convert" ) && _builder != null ) {
-            Task.Run( async () => {
-                try {
-                    _exportStatus = ExportStatus.ExportingModel;
-
-                    var data = _modelConverter.GetBytes( _builder );
-                    if( data != null ) {
-                        SaveFileDialog( "Save .mdl", "FFXIV Mdl{.mdl}", "model.mdl", ".mdl", path2 => {
-                            _outputMdlPath = path2;
-                            PluginLog.Debug( $"Writing file to: {path2}" );
-                            File.WriteAllBytes( path2, data );
-                            Process.Start( "explorer.exe", Path.GetDirectoryName( path2 ) );
-                        } );
-                    }
-                }
-                catch( Exception ex ) {
-                    PluginLog.Debug( $"Could not write data. {ex.Message}" );
-                }
-                finally {
-                    _exportStatus = ExportStatus.Idle;
-                }
-            } );
-        }
-    }
     private void DrawImportTab() {
         var cra      = ImGui.GetContentRegionAvail();
         var textSize = cra with { Y = cra.Y / 2 - 20 };

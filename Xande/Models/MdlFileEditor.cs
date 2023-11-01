@@ -62,17 +62,22 @@ namespace Xande.Models {
             Materials = input;
         }
 
-        public (MdlFile file, List<byte> vertexData, List<byte> indexData) Rebuild() {
+        private IList<string> GetAttributesList() {
             var attributes = new List<string>();
             foreach( var submesh in Attributes.Values ) {
                 foreach( var submeshAttributes in submesh.Values ) {
                     foreach( var attr in submeshAttributes ) {
-                        if( String.IsNullOrWhiteSpace(attr) && !attributes.Contains( attr ) ) {
+                        if( !String.IsNullOrWhiteSpace( attr ) && !attributes.Contains( attr ) ) {
                             attributes.Add( attr );
                         }
                     }
                 }
             }
+            return attributes;
+        }
+
+        public (MdlFile file, List<byte> vertexData, List<byte> indexData) Rebuild() {
+            var attributes = GetAttributesList();
 
             var materials = Materials.Values.Distinct().ToList();
             foreach (var (meshIdx, mat) in Materials) {
@@ -118,17 +123,16 @@ namespace Xande.Models {
             for (var i = 0; i < _bones.Count; i++ ) {
                 _file.BoneNameOffsets[i] = ( uint )newStrings.IndexOf( _bones[i] );
             }
-            // TODO: Recalculate the entire name offsets (attributes, bones, materials, shapes, and extras)
             sizeDiff += ( _file.MaterialNameOffsets.Length - materials.Count ) * sizeof( uint );
             _file.MaterialNameOffsets = new uint[materials.Count];
             for (var i = 0; i < materials.Count; i++) {
+                _logger?.Debug( $"{materials[i]} at {newStrings.IndexOf( materials[i] )}" );
                 _file.MaterialNameOffsets[i] = (uint) newStrings.IndexOf( materials[i] );
             }
 
             _file.FileHeader.RuntimeSize += (uint)sizeDiff;
 
             // TODO?: For now, only assuming first lod
-            // TODO: This can fail because the Padding value may be different
             _file.FileHeader.VertexOffset[0] += ( uint )sizeDiff;
             _file.FileHeader.IndexOffset[0] += ( uint )sizeDiff;
 
@@ -164,6 +168,7 @@ namespace Xande.Models {
                 if( !Attributes.ContainsKey( meshIdx ) ) {
                     Attributes.Add( meshIdx, new Dictionary<int, IList<string>>() );
                 }
+                var meshStartSubmesIndex = mesh.SubMeshIndex;
                 for (var submeshIdx = mesh.SubMeshIndex; submeshIdx < mesh.SubMeshIndex + mesh.SubMeshCount; submeshIdx++ ) {
                     var submesh = _file.Submeshes[submeshIdx];
 
@@ -175,7 +180,7 @@ namespace Xande.Models {
                         }
                     }
 
-                    Attributes[meshIdx].Add( submeshIdx, attributesList );
+                    Attributes[meshIdx].Add( submeshIdx - meshStartSubmesIndex, attributesList );
                 }
             }
         }
@@ -196,22 +201,14 @@ namespace Xande.Models {
         }
 
         private string RebuildStrings() {
-            var attributes = new List<string>();
-            foreach (var submesh in Attributes.Values) {
-                foreach (var attr in submesh.Values) {
-                    foreach (var a in attr) {
-                        if (a != "" && !attributes.Contains(a)) {
-                            attributes.Add( a );
-                        }
-                    }
-                }
-            }
+            var attributes = GetAttributesList();
+
             var materials = Materials.Values.Distinct();
-            _logger?.Debug( $"{string.Join( ",", attributes )}" );
-            _logger?.Debug( $"{string.Join( ",", _bones )}" );
-            _logger?.Debug( $"{string.Join( ",", materials )}" );
-            _logger?.Debug( $"{string.Join( ",", _shapes )}" );
-            _logger?.Debug( $"{string.Join( ",", _extras )}" );
+            _logger?.Debug( $"Attributes: {string.Join( ",", attributes )}" );
+            _logger?.Debug( $"Bones: {string.Join( ",", _bones )}" );
+            _logger?.Debug( $"Materials: {string.Join( ",", materials )}" );
+            _logger?.Debug( $"Shapes: {string.Join( ",", _shapes )}" );
+            _logger?.Debug( $"Extras: {string.Join( ",", _extras )}" );
             var list = new List<string>();
             list.AddRange( attributes );
             list.AddRange( _bones );
@@ -221,7 +218,6 @@ namespace Xande.Models {
 
             var str = String.Join( "\0", list );
 
-            _logger?.Debug( $"{str}" );
             // I don't know if this is actually necessary
             if( attributes.Count == 0 ) {
                 str += "\0";
