@@ -20,6 +20,7 @@ namespace Xande.TestPlugin.Windows {
         private MdlFileEditor? _editor = null;
 
         public string MdlPath = "";
+        private string _tempMdlPath = "";
         private string[]? _materials;
         private string[]? _attributes;
 
@@ -40,10 +41,11 @@ namespace Xande.TestPlugin.Windows {
             string[]? materials = null;
             string[]? attributes = null;
 
-            if( ImGui.Button( "Load .mdl" ) ) {
+            if( ImGui.Button( "Load .mdl" ) || (File.Exists(MdlPath) && _tempMdlPath != MdlPath)) {
                 if( !String.IsNullOrWhiteSpace( MdlPath ) ) {
                     var file = _lumina.GetFile<MdlFile>( MdlPath );
                     if( file != null ) {
+                        _tempMdlPath = MdlPath;
                         _isLoaded = true;
                         editor = new( file, _logger );
                         _editor = editor;

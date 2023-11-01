@@ -105,6 +105,11 @@ public class MainWindow : Window, IDisposable {
 
         if (ImGui.BeginTabItem("Edit .mdl")) {
             DrawStatus();
+
+            if (ImGui.Button($"Select .mdl")) {
+                OpenFileDialog( "Select .mdl file", "ffxiv .mdl{.mdl}", path => { _mdlFileEditorView.MdlPath = path; } );
+            }
+            ImGui.SameLine();
             _mdlFileEditorView.Draw();
             if( ImGui.Button( $"Save..." ) ) {
                 var (file, vertexData, indexData) = _mdlFileEditorView.Confirm();

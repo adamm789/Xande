@@ -156,8 +156,6 @@ namespace Xande.Models {
             var shapeEnd = shapeStart + _file.ModelHeader.ShapeCount;
             _shapes = StringOffsetToStringMap.Values.Take( new Range( shapeStart, shapeEnd ) ).ToList();
             _extras = StringOffsetToStringMap.Values.Take( new Range( shapeEnd, StringOffsetToStringMap.Values.Count - shapeEnd ) ).ToList();
-
-            _logger?.Debug($"bones: {_bones.Count}");
         }
 
         private void ReadAttributes() {
