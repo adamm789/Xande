@@ -20,18 +20,16 @@ namespace Xande.Models {
             _w = new BinaryWriter( stream );
         }
 
-        public void WriteAll( IEnumerable<byte>[] vertexData, IEnumerable<byte>[] indexData, bool overwriteOffsets = true ) {
+        public void WriteAll( IEnumerable<byte>[] vertexData, IEnumerable<byte>[] indexData, bool overwrite = true ) {
             WriteFile();
-            WriteVertexData( vertexData, overwriteOffsets );
-            WriteIndexData( indexData, overwriteOffsets );
+            WriteVertexAndIndexData(vertexData, indexData, overwrite);
         }
 
-        public void WriteAll( IEnumerable<byte> vertexData, IEnumerable<byte> indexData, bool overwriteOffsets = true ) {
-            WriteFile();
-            WriteVertexData( vertexData, overwriteOffsets );
-            WriteIndexData( indexData, overwriteOffsets );
-
-            _logger?.Debug( "Finished writing" );
+        public void WriteAll( IEnumerable<byte> vertexData, IEnumerable<byte> indexData, bool overwrite = true ) {
+            WriteAll(
+                new IEnumerable<byte>[] { vertexData, Array.Empty<byte>(), Array.Empty<byte>() },
+                new IEnumerable<byte>[] { indexData, Array.Empty<byte>(), Array.Empty<byte>() },
+                overwrite );
         }
 
         private void WriteFile() {
@@ -124,12 +122,12 @@ namespace Xande.Models {
                     _w.Write( vertexElement.UsageIndex );
                     _w.Seek( 3, SeekOrigin.Current );
                 }
-                if (declaration.VertexElements.Length < 17) {
+                if( declaration.VertexElements.Length < 17 ) {
                     _w.Write( ( byte )255 );
-                    _w.Seek(7, SeekOrigin.Current );
+                    _w.Seek( 7, SeekOrigin.Current );
                 }
-                for (var i = declaration.VertexElements.Length + 1; i < 17; i++ ) {
-                    _w.Seek(8, SeekOrigin.Current);
+                for( var i = declaration.VertexElements.Length + 1; i < 17; i++ ) {
+                    _w.Seek( 8, SeekOrigin.Current );
                 }
             }
         }
@@ -359,50 +357,48 @@ namespace Xande.Models {
             }
         }
 
-        private void WriteVertexData( IEnumerable<byte> vertexData, bool overwriteOffset = true ) {
-            WriteVertexData( new IEnumerable<byte>[] { vertexData, Array.Empty<byte>(), Array.Empty<byte>() }, overwriteOffset );
-        }
-
-        private void WriteVertexData( IEnumerable<byte>[] vertexData, bool overwriteOffset = true ) {
+        private void WriteVertexAndIndexData( IEnumerable<byte>[] vertexData, IEnumerable<byte>[] indexData, bool overwrite = true ) {
             var vertexOffsets = new uint[3] { 0, 0, 0 };
-            for( var i = 0; i < 3; i++ ) {
-                var data = vertexData[i];
-                if( data.Any() ) {
-                    vertexOffsets[i] = ( uint )_w.BaseStream.Position;
-                    _w.Write( data.ToArray() );
-                }
-            }
-            if( overwriteOffset ) {
-                _logger?.Debug( $"Overwriting vertex offsets: {String.Join( ", ", vertexOffsets )}" );
-                _w.Seek( 16, SeekOrigin.Begin );
-                foreach( var offset in vertexOffsets ) {
-                    _w.Write( offset );
-                }
-            }
-            _w.Seek(0, SeekOrigin.End );
-        }
-
-        private void WriteIndexData( IEnumerable<byte> indexData, bool overwriteOffset = true ) {
-            WriteIndexData( new IEnumerable<byte>[] { indexData, Array.Empty<byte>(), Array.Empty<byte>() }, overwriteOffset );
-        }
-
-        private void WriteIndexData( IEnumerable<byte>[] indexData, bool overwriteOffset = true ) {
             var indexOffsets = new uint[3] { 0, 0, 0 };
+            var vertexBufferSizes = new uint[3] { 0, 0, 0 };
+            var indexBufferSizes = new uint[3] { 0, 0, 0 };
+
             for( var i = 0; i < 3; i++ ) {
-                var data = indexData[i];
-                if( data.Any() ) {
+                if( vertexData[i].Any() && indexData[i].Any() ) {
+                    vertexBufferSizes[i] = ( uint )vertexData[i].Count();
+                    indexBufferSizes[i] = ( uint )indexData[i].Count();
+
+                    vertexOffsets[i] = ( uint )_w.BaseStream.Position;
+                    _w.Write( vertexData[i].ToArray() );
                     indexOffsets[i] = ( uint )_w.BaseStream.Position;
-                    _w.Write( data.ToArray() );
+                    _w.Write( indexData[i].ToArray() );
                 }
             }
-            if( overwriteOffset ) {
-                _logger?.Debug( $"Overwriting index offsets: {String.Join( ", ", indexOffsets )}" );
-                _w.Seek( 28, SeekOrigin.Begin );
-                foreach( var offset in indexOffsets ) {
-                    _w.Write( offset );
+
+            if( overwrite ) {
+                _w.Seek( 16, SeekOrigin.Begin );
+
+                _logger?.Debug( $"Overwriting vertex offsets {string.Join( ", ", vertexOffsets )}" );
+                foreach( var off in vertexOffsets ) {
+                    _w.Write( off );
                 }
+
+                _logger?.Debug( $"Overwriting index offsets {string.Join( ", ", indexOffsets )}" );
+                foreach( var off in indexOffsets ) {
+                    _w.Write( off );
+                }
+
+                _logger?.Debug( $"Overwriting vertex buffer sizes {string.Join( ", ", vertexBufferSizes )}" );
+                foreach( var size in vertexBufferSizes ) {
+                    _w.Write( size );
+                }
+
+                _logger?.Debug( $"Overwriting index buffer sizes {string.Join( ", ", indexBufferSizes )}" );
+                foreach( var size in indexBufferSizes ) {
+                    _w.Write( size );
+                }
+                _w.Seek( 0, SeekOrigin.End );
             }
-            _w.Seek( 0, SeekOrigin.End );
         }
 
         public void Dispose() {
