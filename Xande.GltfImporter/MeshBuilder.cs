@@ -52,16 +52,12 @@ namespace Xande.GltfImporter {
             }
         }
 
-        public int GetVertexCount() {
-            return GetVertexCount( false );
-        }
-
         /// <summary>
         /// 
         /// </summary>
         /// <param name="strings">An optional list of strings that may or may not contain the names of used shapes</param>
         /// <returns></returns>
-        public int GetVertexCount( bool includeShapes, List<string>? strings = null ) {
+        public int GetVertexCount( bool includeShapes = false, List<string>? strings = null ) {
             var vertexCount = 0;
             foreach( var submeshBuilder in Submeshes ) {
                 vertexCount += submeshBuilder.GetVertexCount( includeShapes, strings );
