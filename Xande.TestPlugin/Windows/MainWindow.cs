@@ -88,7 +88,7 @@ public class MainWindow : Window, IDisposable {
             ImGui.EndTabItem();
         }
 
-        if( ImGui.BeginTabItem( "Import .gltf V1" ) ) {
+        if( ImGui.BeginTabItem( "Import .gltf" ) ) {
             DrawStatus();
             DrawImportTab();
             ImGui.EndTabItem();
@@ -150,8 +150,6 @@ public class MainWindow : Window, IDisposable {
                 PluginLog.Error( $"Original mdl file does not exist: {_modelPaths}" );
                 //return;
             }
-
-
             if( _exportStatus != ExportStatus.ExportingModel ) {
                 Task.Run( async () => {
                     try {
