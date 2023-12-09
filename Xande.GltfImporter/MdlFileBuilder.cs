@@ -120,6 +120,15 @@ public class MdlFileBuilder {
             _stringTableBuilder.AddMaterial( meshBuilder.Material );
             _stringTableBuilder.AddShapes( meshBuilder.Shapes );
             _stringTableBuilder.AddAttributes( meshBuilder.Attributes );
+
+            var meshVertexCount = meshBuilder.GetVertexCount();
+
+            if (meshVertexCount > ushort.MaxValue ) {
+                throw new ArgumentException( $"Mesh {meshIdx} has ${meshVertexCount}, which is more than the alotted {ushort.MaxValue}." );
+            }
+            if (meshBuilder.IndexCount < 0) {
+                throw new ArgumentException( $"Mesh {meshIdx} has too many indices." );
+            }
         }
         var inputMaterials = _stringTableBuilder.Materials.Where( m => m.StartsWith( '/' ) );
 
