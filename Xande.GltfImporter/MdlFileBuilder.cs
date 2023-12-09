@@ -103,6 +103,7 @@ public class MdlFileBuilder {
             }
         }
 
+        var totalVertexCount = 0;
         foreach( var meshIdx in _meshes.Keys ) {
             var submeshes = new List<SubmeshBuilder>();
             _attributes.Add( meshIdx, new SortedDictionary<int, List<string>>() );
@@ -122,6 +123,7 @@ public class MdlFileBuilder {
             _stringTableBuilder.AddAttributes( meshBuilder.Attributes );
 
             var meshVertexCount = meshBuilder.GetVertexCount();
+            totalVertexCount += meshVertexCount;
 
             if (meshVertexCount > ushort.MaxValue ) {
                 throw new ArgumentException( $"Mesh {meshIdx} has ${meshVertexCount}, which is more than the alotted {ushort.MaxValue}." );
@@ -130,6 +132,11 @@ public class MdlFileBuilder {
                 throw new ArgumentException( $"Mesh {meshIdx} has too many indices." );
             }
         }
+
+        if (totalVertexCount == 0) {
+            throw new ArgumentException( $"Model contained no vertices." );
+        }
+
         var inputMaterials = _stringTableBuilder.Materials.Where( m => m.StartsWith( '/' ) );
 
         if( _origModel != null ) {
